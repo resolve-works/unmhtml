@@ -1,8 +1,6 @@
 import email
 import base64
-import mimetypes
 from typing import Dict, Tuple, Optional
-from urllib.parse import urlparse, urljoin
 
 
 class MHTMLParser:

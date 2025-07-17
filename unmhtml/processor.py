@@ -2,8 +2,6 @@ import re
 import base64
 import mimetypes
 from typing import Dict
-from urllib.parse import urlparse, urljoin
-from html import escape
 from .utils import is_javascript_file
 
 
