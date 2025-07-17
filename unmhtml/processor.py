@@ -7,12 +7,45 @@ from html import escape
 
 
 class HTMLProcessor:
+    """
+    Processor for embedding CSS and converting resources to data URIs in HTML.
+    
+    This class takes HTML content and a collection of resources (CSS, images, fonts)
+    and processes the HTML to create a standalone document. It converts external
+    CSS links to inline <style> tags and converts resource references to data URIs.
+    
+    The processor handles various resource types including CSS files, images, fonts,
+    and other binary resources, converting them to base64-encoded data URIs for
+    embedding directly in the HTML.
+    
+    Args:
+        html_content: The HTML content to process
+        resources: Dictionary mapping resource URLs to their binary content
+        
+    Example:
+        >>> processor = HTMLProcessor(html_content, resources)
+        >>> html_with_css = processor.embed_css()
+        >>> standalone_html = processor.convert_to_data_uris()
+    """
     def __init__(self, html_content: str, resources: Dict[str, bytes]):
         self.html_content = html_content
         self.resources = resources
         
     def embed_css(self) -> str:
-        """Convert <link> tags to <style> tags with embedded CSS"""
+        """
+        Convert external CSS <link> tags to inline <style> tags.
+        
+        Finds all stylesheet link tags in the HTML and replaces them with
+        inline <style> tags containing the CSS content from the resources.
+        
+        Returns:
+            HTML string with CSS embedded as inline styles
+            
+        Example:
+            >>> processor = HTMLProcessor(html, resources)
+            >>> html_with_css = processor.embed_css()
+            >>> # <link rel="stylesheet" href="style.css"> becomes <style>...</style>
+        """
         html = self.html_content
         
         # Find all CSS link tags
@@ -35,7 +68,21 @@ class HTMLProcessor:
         return html
     
     def convert_to_data_uris(self) -> str:
-        """Convert resource references to data URIs"""
+        """
+        Convert resource references to data URIs for standalone HTML.
+        
+        Processes src and href attributes in the HTML, converting references
+        to embedded resources into base64-encoded data URIs. Also handles
+        CSS url() references within stylesheets.
+        
+        Returns:
+            HTML string with all resource references converted to data URIs
+            
+        Example:
+            >>> processor = HTMLProcessor(html, resources)
+            >>> standalone_html = processor.convert_to_data_uris()
+            >>> # <img src="image.jpg"> becomes <img src="data:image/jpeg;base64,...">
+        """
         html = self.html_content
         
         # Process src attributes (images, scripts, etc.)
@@ -53,7 +100,18 @@ class HTMLProcessor:
         return html
     
     def _find_css_content(self, href: str) -> str:
-        """Find CSS content by href in resources"""
+        """
+        Find CSS content in resources by href attribute.
+        
+        Searches for CSS content using exact match first, then fallback
+        to basename matching for more flexible resource resolution.
+        
+        Args:
+            href: The href attribute value from the link tag
+            
+        Returns:
+            CSS content as string, empty string if not found
+        """
         # Try exact match first
         if href in self.resources:
             try:
@@ -72,7 +130,18 @@ class HTMLProcessor:
         return ""
     
     def _replace_with_data_uri(self, match) -> str:
-        """Replace URL with data URI"""
+        """
+        Replace a URL match with a data URI.
+        
+        Callback function for regex substitution that converts resource
+        URLs to base64-encoded data URIs.
+        
+        Args:
+            match: Regex match object containing URL components
+            
+        Returns:
+            Replacement string with data URI or original if resource not found
+        """
         prefix = match.group(1)
         url = match.group(2)
         suffix = match.group(3)
@@ -97,7 +166,18 @@ class HTMLProcessor:
         return match.group(0)
     
     def _replace_css_url(self, match) -> str:
-        """Replace CSS url() with data URI"""
+        """
+        Replace CSS url() references with data URIs.
+        
+        Callback function for regex substitution that converts CSS url()
+        references to base64-encoded data URIs.
+        
+        Args:
+            match: Regex match object containing the URL
+            
+        Returns:
+            Replacement CSS url() with data URI or original if resource not found
+        """
         url = match.group(1)
         
         # Skip if already a data URI
@@ -120,7 +200,18 @@ class HTMLProcessor:
         return match.group(0)
     
     def _find_resource_content(self, url: str) -> bytes:
-        """Find resource content by URL in resources"""
+        """
+        Find resource content by URL with flexible matching.
+        
+        Searches for resource content using multiple strategies:
+        exact match, basename match, and URL without query parameters.
+        
+        Args:
+            url: The URL to search for in resources
+            
+        Returns:
+            Binary content of the resource, empty bytes if not found
+        """
         # Try exact match first
         if url in self.resources:
             return self.resources[url]
@@ -138,7 +229,18 @@ class HTMLProcessor:
         return b""
     
     def _get_mime_type(self, url: str) -> str:
-        """Get MIME type for a URL"""
+        """
+        Determine MIME type for a resource URL.
+        
+        Uses Python's mimetypes module with additional handling for
+        common web font types and other edge cases.
+        
+        Args:
+            url: The resource URL to analyze
+            
+        Returns:
+            MIME type string, defaults to 'application/octet-stream'
+        """
         mime_type, _ = mimetypes.guess_type(url)
         
         # Handle some common cases that mimetypes might not recognize properly
