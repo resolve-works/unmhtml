@@ -83,7 +83,12 @@ class HTMLProcessor:
 
 ```python
 class MHTMLConverter:
-    def __init__(self, remove_javascript: bool = False):
+    def __init__(self, 
+                 remove_javascript: bool = False,
+                 sanitize_css: bool = False,
+                 remove_forms: bool = False,
+                 remove_external_urls: bool = False,
+                 remove_meta_redirects: bool = False):
         """
         Initialize the MHTML converter.
         
@@ -91,8 +96,20 @@ class MHTMLConverter:
             remove_javascript: If True, removes potentially dangerous JavaScript content
                               including script tags, event handlers, and javascript: URLs.
                               Default is False to preserve original content.
+            sanitize_css: If True, removes CSS properties that can make network requests
+                         (url(), @import, expression(), behavior:). Default is False.
+            remove_forms: If True, removes form elements that could submit data externally.
+                         Default is False.
+            remove_external_urls: If True, converts external URLs to safe anchors, keeping
+                                 only fragment identifiers and relative paths. Default is False.
+            remove_meta_redirects: If True, removes meta refresh and other dangerous meta tags.
+                                  Default is False.
         """
         self.remove_javascript = remove_javascript
+        self.sanitize_css = sanitize_css
+        self.remove_forms = remove_forms
+        self.remove_external_urls = remove_external_urls
+        self.remove_meta_redirects = remove_meta_redirects
         
     def convert_file(self, mhtml_path: str) -> str:
         """Convert MHTML file to HTML string"""
@@ -109,9 +126,10 @@ class MHTMLConverter:
         html_with_css = processor.embed_css()
         final_html = processor.convert_to_data_uris()
         
-        # Apply JavaScript removal if requested
-        if self.remove_javascript:
-            final_html = clean_html_content(final_html)
+        # Apply security sanitization if requested
+        if any([self.remove_javascript, self.sanitize_css, self.remove_forms, 
+                self.remove_external_urls, self.remove_meta_redirects]):
+            final_html = self._sanitize_html(final_html)
         
         return final_html
 ```
@@ -145,6 +163,16 @@ html_content = converter.convert(mhtml_string)
 # Secure conversion with JavaScript removal
 secure_converter = MHTMLConverter(remove_javascript=True)
 html_content = secure_converter.convert_file('page.mhtml')
+
+# Full security sanitization for untrusted content
+safe_converter = MHTMLConverter(
+    remove_javascript=True,
+    sanitize_css=True,
+    remove_forms=True,
+    remove_external_urls=True,
+    remove_meta_redirects=True
+)
+html_content = safe_converter.convert_file('untrusted.mhtml')
 ```
 
 ## **7. Key Features**
@@ -152,33 +180,57 @@ html_content = secure_converter.convert_file('page.mhtml')
 - **CSS Embedding:** Convert `<link rel="stylesheet">` to `<style>` tags
 - **Resource Embedding:** Convert images/fonts to data URIs
 - **URL Resolution:** Handle relative and absolute resource references
-- **JavaScript Removal:** Optional security feature to remove script tags, event handlers, and javascript: URLs
+- **Comprehensive Security Options:** Multiple sanitization features for safe display of untrusted content
 - **Error Handling:** Graceful degradation for malformed MHTML
 - **Memory Efficient:** Process large files without excessive memory usage
 
 ## **8. Security Considerations**
 
-The library provides optional JavaScript removal functionality for secure conversion:
+The library provides comprehensive security sanitization options for safe display of untrusted content:
 
+### **8.1. JavaScript Removal (`remove_javascript=True`)**
 - **Script Tag Removal:** Removes `<script>` tags and their contents
 - **Event Handler Removal:** Removes `on*` event handlers (onclick, onload, etc.)
 - **JavaScript URL Removal:** Converts `javascript:` URLs to safe `#` anchors
-- **Default Behavior:** JavaScript removal is disabled by default to preserve original content
-- **Use Cases:** Enable JavaScript removal when displaying untrusted MHTML content
+
+### **8.2. CSS Sanitization (`sanitize_css=True`)**
+- **URL Property Removal:** Removes CSS `url()` references that could exfiltrate data
+- **Import Blocking:** Removes `@import` statements that could load external stylesheets
+- **Expression Removal:** Removes IE-specific `expression()` and `behavior:` properties
+
+### **8.3. Form Sanitization (`remove_forms=True`)**
+- **Form Element Removal:** Removes `<form>`, `<input>`, `<textarea>`, `<select>` elements
+- **Prevents Data Submission:** Stops forms from submitting data to external endpoints
+
+### **8.4. External URL Filtering (`remove_external_urls=True`)**
+- **URL Conversion:** Converts external URLs to safe `#` anchors
+- **Preserves Navigation:** Keeps fragment identifiers and relative paths intact
+- **Prevents Exfiltration:** Blocks attempts to send data via image or link requests
+
+### **8.5. Meta Tag Sanitization (`remove_meta_redirects=True`)**
+- **Redirect Removal:** Removes `<meta http-equiv="refresh">` tags
+- **Cookie Prevention:** Removes `<meta http-equiv="set-cookie">` tags
+- **DNS Prefetch Blocking:** Removes `<link rel="dns-prefetch">` tags
+
+### **8.6. Default Behavior**
+- **All sanitization is disabled by default** to preserve original content
+- **Enable specific options** based on your security requirements
+- **For untrusted content:** Enable all sanitization options for maximum safety
 
 ## **9. Testing Strategy**
 
 - **Basic Functionality:** Test MHTML to HTML conversion works
 - **Error Handling:** Test graceful handling of malformed input
 - **Resource Embedding:** Verify CSS and resources are properly embedded
-- **JavaScript Removal:** Test security features work correctly
+- **Security Sanitization:** Test all security features work correctly
+- **Content Preservation:** Verify sanitization doesn't break legitimate content
 
 ## **10. Success Criteria**
 
 - **Functionality:** Successfully convert MHTML files to standalone HTML
 - **Performance:** Process typical web pages (1-5MB MHTML) efficiently
 - **Reliability:** Handle malformed MHTML gracefully
-- **Security:** Provide optional JavaScript removal for safe content display
+- **Security:** Provide comprehensive sanitization options for safe display of untrusted content
 - **Simplicity:** Clean, minimal API with good documentation
 - **Portability:** Zero external dependencies, pure Python stdlib
 
