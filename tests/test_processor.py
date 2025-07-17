@@ -219,3 +219,77 @@ class TestHTMLProcessor:
         
         uri_result = processor.convert_to_data_uris()
         assert uri_result == html
+    
+    def test_javascript_file_filtering(self):
+        """Test that JavaScript files are filtered when remove_javascript=True"""
+        html = '''<html>
+        <body>
+            <script src="app.js"></script>
+            <img src="image.png" alt="test">
+            <link rel="stylesheet" href="style.css">
+        </body>
+        </html>'''
+        
+        resources = {
+            'app.js': b'alert("hello world");',
+            'image.png': b'fake_image_data',
+            'style.css': b'body { color: red; }'
+        }
+        
+        # Test with remove_javascript=False (default)
+        processor_normal = HTMLProcessor(html, resources, remove_javascript=False)
+        result_normal = processor_normal.convert_to_data_uris()
+        
+        # JavaScript file should be converted to data URI
+        assert 'data:text/javascript;base64,' in result_normal
+        assert 'data:image/png;base64,' in result_normal
+        
+        # Test with remove_javascript=True
+        processor_secure = HTMLProcessor(html, resources, remove_javascript=True)
+        result_secure = processor_secure.convert_to_data_uris()
+        
+        # JavaScript file should NOT be converted to data URI
+        assert 'data:text/javascript;base64,' not in result_secure
+        # Other resources should still be converted
+        assert 'data:image/png;base64,' in result_secure
+        
+        # The original src="app.js" should remain unchanged (not converted to data URI)
+        assert 'src="app.js"' in result_secure
+    
+    def test_javascript_file_filtering_with_css_embedding(self):
+        """Test JavaScript filtering works with CSS embedding"""
+        html = '''<html>
+        <head>
+            <link rel="stylesheet" href="style.css">
+        </head>
+        <body>
+            <script src="app.js"></script>
+            <img src="image.png" alt="test">
+        </body>
+        </html>'''
+        
+        resources = {
+            'app.js': b'console.log("test");',
+            'image.png': b'fake_image_data',
+            'style.css': b'body { background: blue; }'
+        }
+        
+        # Test with remove_javascript=True
+        processor = HTMLProcessor(html, resources, remove_javascript=True)
+        
+        # First embed CSS
+        html_with_css = processor.embed_css()
+        assert '<style type="text/css">' in html_with_css
+        assert 'background: blue' in html_with_css
+        
+        # Update processor content and convert to data URIs
+        processor.html_content = html_with_css
+        result = processor.convert_to_data_uris()
+        
+        # JavaScript should not be embedded as data URI
+        assert 'data:text/javascript;base64,' not in result
+        # Image should be embedded
+        assert 'data:image/png;base64,' in result
+        # CSS should be embedded inline
+        assert '<style type="text/css">' in result
+        assert 'background: blue' in result

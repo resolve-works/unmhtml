@@ -371,7 +371,7 @@ Content-Type: text/html
         assert '<h1>Hello World</h1>' in result
         assert '<p>Good content</p>' in result
     
-    def test_convert_file_with_remove_javascript(self, temp_dir):
+    def test_convert_file_with_remove_javascript(self, tmp_path):
         """Test file conversion with JavaScript removal"""
         mhtml_content = """From: <Saved by Blink>
 MIME-Version: 1.0
@@ -394,17 +394,13 @@ Content-Type: text/html
 """
         
         # Create temporary file
-        import tempfile
-        import os
-        
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.mhtml', delete=False) as f:
-            f.write(mhtml_content)
-            temp_file = f.name
+        temp_file = tmp_path / "test.mhtml"
+        temp_file.write_text(mhtml_content)
         
         try:
             # Test with remove_javascript=True
             converter = MHTMLConverter(remove_javascript=True)
-            result = converter.convert_file(temp_file)
+            result = converter.convert_file(str(temp_file))
             
             # Should remove script tags
             assert '<script>' not in result
@@ -412,4 +408,4 @@ Content-Type: text/html
             assert '<h1>Hello World</h1>' in result
             
         finally:
-            os.unlink(temp_file)
+            pass  # tmp_path cleanup handled by pytest

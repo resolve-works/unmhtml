@@ -4,6 +4,7 @@ import mimetypes
 from typing import Dict
 from urllib.parse import urlparse, urljoin
 from html import escape
+from .utils import is_javascript_file
 
 
 class HTMLProcessor:
@@ -27,9 +28,14 @@ class HTMLProcessor:
         >>> html_with_css = processor.embed_css()
         >>> standalone_html = processor.convert_to_data_uris()
     """
-    def __init__(self, html_content: str, resources: Dict[str, bytes]):
+    def __init__(self, html_content: str, resources: Dict[str, bytes], remove_javascript: bool = False):
         self.html_content = html_content
         self.resources = resources
+        self.remove_javascript = remove_javascript
+        
+        # Filter out JavaScript files if remove_javascript is True
+        if self.remove_javascript:
+            self.resources = self._filter_javascript_resources(resources)
         
     def embed_css(self) -> str:
         """
@@ -260,3 +266,25 @@ class HTMLProcessor:
             return mime_type
         
         return 'application/octet-stream'
+    
+    def _filter_javascript_resources(self, resources: Dict[str, bytes]) -> Dict[str, bytes]:
+        """
+        Filter out JavaScript files from resources when remove_javascript=True.
+        
+        Removes JavaScript files from the resources dictionary to prevent them
+        from being embedded as data URIs in the final HTML.
+        
+        Args:
+            resources: Dictionary of resource URLs to binary content
+            
+        Returns:
+            Filtered resources dictionary without JavaScript files
+        """
+        filtered_resources = {}
+        
+        for url, content in resources.items():
+            # Check if this is a JavaScript file
+            if not is_javascript_file(url):
+                filtered_resources[url] = content
+        
+        return filtered_resources

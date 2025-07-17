@@ -4,7 +4,8 @@ from unmhtml.utils import (
     extract_charset, 
     is_binary_content_type,
     clean_html_content,
-    extract_filename_from_url
+    extract_filename_from_url,
+    is_javascript_file
 )
 
 
@@ -264,3 +265,50 @@ class TestUtils:
         assert 'script>' not in result
         assert 'javascript:' not in result
         assert 'on' not in result or 'onclick' not in result
+    
+    # Tests for JavaScript file detection
+    @pytest.mark.parametrize("url,expected", [
+        ("app.js", True),
+        ("script.mjs", True),
+        ("component.jsx", True),
+        ("module.ts", True),
+        ("component.tsx", True),
+        ("APP.JS", True),  # Case insensitive
+        ("style.css", False),
+        ("image.png", False),
+        ("page.html", False),
+        ("data.json", False),
+        ("", False),
+    ])
+    def test_is_javascript_file_by_extension(self, url, expected):
+        """Test JavaScript file detection by extension"""
+        assert is_javascript_file(url) == expected
+    
+    @pytest.mark.parametrize("url,content_type,expected", [
+        ("unknown", "text/javascript", True),
+        ("unknown", "application/javascript", True),
+        ("unknown", "application/x-javascript", True),
+        ("unknown", "text/ecmascript", True),
+        ("unknown", "application/ecmascript", True),
+        ("unknown", "TEXT/JAVASCRIPT", True),  # Case insensitive
+        ("unknown", "text/css", False),
+        ("unknown", "image/png", False),
+        ("unknown", "text/html", False),
+        ("unknown", "", False),
+        ("unknown", None, False),
+    ])
+    def test_is_javascript_file_by_content_type(self, url, content_type, expected):
+        """Test JavaScript file detection by content type"""
+        assert is_javascript_file(url, content_type) == expected
+    
+    def test_is_javascript_file_combined(self):
+        """Test JavaScript file detection with both extension and content type"""
+        # Extension overrides content type
+        assert is_javascript_file("app.js", "text/css") == True
+        assert is_javascript_file("style.css", "text/javascript") == True
+        
+        # Both indicate JavaScript
+        assert is_javascript_file("app.js", "text/javascript") == True
+        
+        # Neither indicates JavaScript
+        assert is_javascript_file("style.css", "text/css") == False

@@ -92,7 +92,8 @@ class MHTMLConverter:
                 raise ValueError("No HTML content found in MHTML")
             
             # Process HTML to embed CSS and convert resources
-            processor = HTMLProcessor(main_html, resources)
+            # Pass remove_javascript flag to filter JavaScript files from resources
+            processor = HTMLProcessor(main_html, resources, remove_javascript=self.remove_javascript)
             html_with_css = processor.embed_css()
             processor.html_content = html_with_css  # Update processor with embedded CSS
             final_html = processor.convert_to_data_uris()
