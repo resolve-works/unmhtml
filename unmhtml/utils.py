@@ -106,20 +106,31 @@ def is_binary_content_type(content_type: str) -> bool:
 
 def clean_html_content(html: str) -> str:
     """
-    Clean HTML content by removing potentially problematic elements.
+    Clean HTML content by removing potentially dangerous JavaScript elements.
     
-    Removes script tags, event handlers, and javascript: URLs for security.
-    This helps create safer standalone HTML files.
+    This function removes potentially dangerous JavaScript content from HTML to make it
+    safer for display. It performs the following sanitization steps:
+    
+    1. Removes all <script> tags and their contents
+    2. Removes all event handlers (onclick, onload, onmouseover, etc.)
+    3. Converts javascript: URLs to safe # anchors
+    
+    This is used by MHTMLConverter when remove_javascript=True is specified.
     
     Args:
         html: HTML content to clean
         
     Returns:
-        Cleaned HTML string with problematic elements removed
+        Cleaned HTML string with dangerous JavaScript elements removed
         
     Example:
-        >>> clean_html_content('<div onclick="alert()">Hello</div>')
+        >>> html = '<div onclick="alert()">Hello</div><script>alert("bad")</script>'
+        >>> clean_html_content(html)
         '<div>Hello</div>'
+        
+        >>> html = '<a href="javascript:alert()">Link</a>'
+        >>> clean_html_content(html)
+        '<a href="#">Link</a>'
     """
     # Remove script tags for security
     html = re.sub(r'<script[^>]*>.*?</script>', '', html, flags=re.DOTALL | re.IGNORECASE)

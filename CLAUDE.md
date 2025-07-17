@@ -83,6 +83,17 @@ class HTMLProcessor:
 
 ```python
 class MHTMLConverter:
+    def __init__(self, remove_javascript: bool = False):
+        """
+        Initialize the MHTML converter.
+        
+        Args:
+            remove_javascript: If True, removes potentially dangerous JavaScript content
+                              including script tags, event handlers, and javascript: URLs.
+                              Default is False to preserve original content.
+        """
+        self.remove_javascript = remove_javascript
+        
     def convert_file(self, mhtml_path: str) -> str:
         """Convert MHTML file to HTML string"""
         with open(mhtml_path, 'r', encoding='utf-8') as f:
@@ -97,6 +108,10 @@ class MHTMLConverter:
         processor = HTMLProcessor(main_html, resources)
         html_with_css = processor.embed_css()
         final_html = processor.convert_to_data_uris()
+        
+        # Apply JavaScript removal if requested
+        if self.remove_javascript:
+            final_html = clean_html_content(final_html)
         
         return final_html
 ```
@@ -126,6 +141,10 @@ html_content = converter.convert_file('page.mhtml')
 
 # Direct content conversion
 html_content = converter.convert(mhtml_string)
+
+# Secure conversion with JavaScript removal
+secure_converter = MHTMLConverter(remove_javascript=True)
+html_content = secure_converter.convert_file('page.mhtml')
 ```
 
 ## **7. Key Features**
@@ -133,20 +152,33 @@ html_content = converter.convert(mhtml_string)
 - **CSS Embedding:** Convert `<link rel="stylesheet">` to `<style>` tags
 - **Resource Embedding:** Convert images/fonts to data URIs
 - **URL Resolution:** Handle relative and absolute resource references
+- **JavaScript Removal:** Optional security feature to remove script tags, event handlers, and javascript: URLs
 - **Error Handling:** Graceful degradation for malformed MHTML
 - **Memory Efficient:** Process large files without excessive memory usage
 
-## **8. Testing Strategy**
+## **8. Security Considerations**
+
+The library provides optional JavaScript removal functionality for secure conversion:
+
+- **Script Tag Removal:** Removes `<script>` tags and their contents
+- **Event Handler Removal:** Removes `on*` event handlers (onclick, onload, etc.)
+- **JavaScript URL Removal:** Converts `javascript:` URLs to safe `#` anchors
+- **Default Behavior:** JavaScript removal is disabled by default to preserve original content
+- **Use Cases:** Enable JavaScript removal when displaying untrusted MHTML content
+
+## **9. Testing Strategy**
 
 - **Basic Functionality:** Test MHTML to HTML conversion works
 - **Error Handling:** Test graceful handling of malformed input
 - **Resource Embedding:** Verify CSS and resources are properly embedded
+- **JavaScript Removal:** Test security features work correctly
 
-## **9. Success Criteria**
+## **10. Success Criteria**
 
 - **Functionality:** Successfully convert MHTML files to standalone HTML
 - **Performance:** Process typical web pages (1-5MB MHTML) efficiently
 - **Reliability:** Handle malformed MHTML gracefully
+- **Security:** Provide optional JavaScript removal for safe content display
 - **Simplicity:** Clean, minimal API with good documentation
 - **Portability:** Zero external dependencies, pure Python stdlib
 

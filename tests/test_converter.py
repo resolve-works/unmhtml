@@ -280,3 +280,136 @@ iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAA
         
         with pytest.raises(ValueError):
             converter.convert(invalid_input)
+    
+    def test_convert_with_remove_javascript_enabled(self):
+        """Test conversion with JavaScript removal enabled"""
+        mhtml_with_js = """From: <Saved by Blink>
+MIME-Version: 1.0
+Content-Type: multipart/related; boundary="test"
+
+--test
+Content-Type: text/html
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Page</title>
+    <script>alert('test')</script>
+</head>
+<body onclick="malicious()">
+    <h1>Hello World</h1>
+    <p>Good content</p>
+    <a href="javascript:alert('bad')">Bad link</a>
+    <img src="image.png" onload="track()" alt="test">
+</body>
+</html>
+
+--test
+Content-Type: image/png
+Content-Transfer-Encoding: base64
+Content-Location: image.png
+
+iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==
+
+--test--
+"""
+        
+        # Test with remove_javascript=True
+        converter = MHTMLConverter(remove_javascript=True)
+        result = converter.convert(mhtml_with_js)
+        
+        # Should remove dangerous content
+        assert '<script>' not in result
+        assert 'alert(' not in result
+        assert 'onclick=' not in result
+        assert 'onload=' not in result
+        assert 'javascript:' not in result
+        assert 'href="#"' in result
+        
+        # Should preserve good content
+        assert '<h1>Hello World</h1>' in result
+        assert '<p>Good content</p>' in result
+        assert 'alt="test"' in result
+        assert 'src="data:image/png;base64,' in result
+    
+    def test_convert_with_remove_javascript_disabled(self):
+        """Test conversion with JavaScript removal disabled (default)"""
+        mhtml_with_js = """From: <Saved by Blink>
+MIME-Version: 1.0
+Content-Type: multipart/related; boundary="test"
+
+--test
+Content-Type: text/html
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Page</title>
+    <script>alert('test')</script>
+</head>
+<body onclick="malicious()">
+    <h1>Hello World</h1>
+    <p>Good content</p>
+    <a href="javascript:alert('bad')">Bad link</a>
+</body>
+</html>
+
+--test--
+"""
+        
+        # Test with remove_javascript=False (default)
+        converter = MHTMLConverter(remove_javascript=False)
+        result = converter.convert(mhtml_with_js)
+        
+        # Should preserve all content including dangerous parts
+        assert '<script>' in result
+        assert 'alert(' in result
+        assert 'onclick=' in result
+        assert 'javascript:' in result
+        
+        # Should also preserve good content
+        assert '<h1>Hello World</h1>' in result
+        assert '<p>Good content</p>' in result
+    
+    def test_convert_file_with_remove_javascript(self, temp_dir):
+        """Test file conversion with JavaScript removal"""
+        mhtml_content = """From: <Saved by Blink>
+MIME-Version: 1.0
+Content-Type: multipart/related; boundary="test"
+
+--test
+Content-Type: text/html
+
+<!DOCTYPE html>
+<html>
+<head>
+    <script>alert('test')</script>
+</head>
+<body>
+    <h1>Hello World</h1>
+</body>
+</html>
+
+--test--
+"""
+        
+        # Create temporary file
+        import tempfile
+        import os
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.mhtml', delete=False) as f:
+            f.write(mhtml_content)
+            temp_file = f.name
+        
+        try:
+            # Test with remove_javascript=True
+            converter = MHTMLConverter(remove_javascript=True)
+            result = converter.convert_file(temp_file)
+            
+            # Should remove script tags
+            assert '<script>' not in result
+            assert 'alert(' not in result
+            assert '<h1>Hello World</h1>' in result
+            
+        finally:
+            os.unlink(temp_file)

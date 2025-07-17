@@ -21,6 +21,10 @@ Basic Usage:
     >>> with open('page.mhtml', 'r') as f:
     ...     mhtml_content = f.read()
     >>> html_content = converter.convert(mhtml_content)
+    >>> 
+    >>> # Secure conversion with JavaScript removal
+    >>> secure_converter = MHTMLConverter(remove_javascript=True)
+    >>> safe_html = secure_converter.convert_file('untrusted_page.mhtml')
 
 Advanced Usage:
     >>> from unmhtml import MHTMLParser, HTMLProcessor

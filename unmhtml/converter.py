@@ -1,5 +1,6 @@
 from .parser import MHTMLParser
 from .processor import HTMLProcessor
+from .utils import clean_html_content
 
 
 class MHTMLConverter:
@@ -10,12 +11,28 @@ class MHTMLConverter:
     to standalone HTML files with embedded CSS and resources. It handles the entire
     conversion process including parsing, resource embedding, and error handling.
     
+    Args:
+        remove_javascript: If True, removes script tags, event handlers, and javascript: URLs
+                          for security. Default is False to preserve original content.
+    
     Example:
         >>> converter = MHTMLConverter()
         >>> html_content = converter.convert_file('example.mhtml')
-        >>> # Or convert from string content
-        >>> html_content = converter.convert(mhtml_string)
+        >>> # Or convert from string content with JavaScript removed
+        >>> secure_converter = MHTMLConverter(remove_javascript=True)
+        >>> html_content = secure_converter.convert(mhtml_string)
     """
+    
+    def __init__(self, remove_javascript: bool = False):
+        """
+        Initialize the MHTML converter.
+        
+        Args:
+            remove_javascript: If True, removes potentially dangerous JavaScript content
+                              including script tags, event handlers, and javascript: URLs.
+                              Default is False to preserve original content.
+        """
+        self.remove_javascript = remove_javascript
     def convert_file(self, mhtml_path: str) -> str:
         """
         Convert an MHTML file to a standalone HTML string.
@@ -79,6 +96,10 @@ class MHTMLConverter:
             html_with_css = processor.embed_css()
             processor.html_content = html_with_css  # Update processor with embedded CSS
             final_html = processor.convert_to_data_uris()
+            
+            # Apply JavaScript removal if requested
+            if self.remove_javascript:
+                final_html = clean_html_content(final_html)
             
             return final_html
             
