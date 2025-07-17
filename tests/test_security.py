@@ -1,38 +1,38 @@
 import pytest
-from unmhtml.utils import (
-    clean_html_content,
+from unmhtml.security import (
+    remove_javascript_content,
     is_javascript_file
 )
 
 
-class TestUtils:
+class TestSecurity:
     
-    def test_clean_html_content_script_removal(self):
+    def test_remove_javascript_content_script_removal(self):
         """Test script tag removal"""
         html_with_script = '<html><body><script>alert("test")</script><p>Hello</p></body></html>'
-        cleaned = clean_html_content(html_with_script)
+        cleaned = remove_javascript_content(html_with_script)
         assert '<script>' not in cleaned
         assert 'alert("test")' not in cleaned
         assert '<p>Hello</p>' in cleaned
     
-    def test_clean_html_content_event_handlers(self):
+    def test_remove_javascript_content_event_handlers(self):
         """Test event handler removal"""
         html_with_events = '<div onclick="alert(1)" onload="bad()" class="test">Hello</div>'
-        cleaned = clean_html_content(html_with_events)
+        cleaned = remove_javascript_content(html_with_events)
         assert 'onclick=' not in cleaned
         assert 'onload=' not in cleaned
         assert 'class="test"' in cleaned
         assert 'Hello' in cleaned
     
-    def test_clean_html_content_javascript_urls(self):
+    def test_remove_javascript_content_javascript_urls(self):
         """Test javascript: URL removal"""
         html_with_js_url = '<a href="javascript:alert(1)">Link</a>'
-        cleaned = clean_html_content(html_with_js_url)
+        cleaned = remove_javascript_content(html_with_js_url)
         assert 'javascript:' not in cleaned
         assert 'href="#"' in cleaned
         assert 'Link' in cleaned
     
-    def test_clean_html_content_complex(self):
+    def test_remove_javascript_content_complex(self):
         """Test complex HTML cleaning"""
         complex_html = '''
         <html>
@@ -48,7 +48,7 @@ class TestUtils:
         </body>
         </html>
         '''
-        cleaned = clean_html_content(complex_html)
+        cleaned = remove_javascript_content(complex_html)
         assert '<script>' not in cleaned
         assert 'onclick=' not in cleaned
         assert 'onload=' not in cleaned
@@ -57,7 +57,7 @@ class TestUtils:
         assert 'src="image.png"' in cleaned
         assert 'alt="test"' in cleaned
     
-    def test_clean_html_content_preserves_good_content(self):
+    def test_remove_javascript_content_preserves_good_content(self):
         """Test that good content is preserved"""
         good_html = '''
         <html>
@@ -73,7 +73,7 @@ class TestUtils:
         </body>
         </html>
         '''
-        cleaned = clean_html_content(good_html)
+        cleaned = remove_javascript_content(good_html)
         assert '<title>Test Page</title>' in cleaned
         assert '<link rel="stylesheet"' in cleaned
         assert '<h1>Title</h1>' in cleaned
@@ -87,9 +87,9 @@ class TestUtils:
         ('<a href="javascript:void(0)">link</a>', '<a href="#">link</a>'),
         ('<img src="image.png" onload="track()" alt="test">', 'src="image.png"'),
     ])
-    def test_clean_html_content_integration(self, input_html, should_contain):
+    def test_remove_javascript_content_integration(self, input_html, should_contain):
         """Test HTML cleaning integration with various inputs"""
-        result = clean_html_content(input_html)
+        result = remove_javascript_content(input_html)
         assert should_contain in result
         
         # Should not contain dangerous content

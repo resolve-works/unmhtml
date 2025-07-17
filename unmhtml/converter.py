@@ -1,6 +1,6 @@
 from .parser import MHTMLParser
 from .processor import HTMLProcessor
-from .security import clean_html_content
+from .security import remove_javascript_content, sanitize_css
 
 
 class MHTMLConverter:
@@ -14,6 +14,8 @@ class MHTMLConverter:
     Args:
         remove_javascript: If True, removes script tags, event handlers, and javascript: URLs
                           for security. Default is False to preserve original content.
+        sanitize_css: If True, removes CSS properties that can make network requests
+                     (url(), @import, expression(), behavior:). Default is False.
     
     Example:
         >>> converter = MHTMLConverter()
@@ -21,9 +23,12 @@ class MHTMLConverter:
         >>> # Or convert from string content with JavaScript removed
         >>> secure_converter = MHTMLConverter(remove_javascript=True)
         >>> html_content = secure_converter.convert(mhtml_string)
+        >>> # Or convert with CSS sanitization enabled
+        >>> css_safe_converter = MHTMLConverter(sanitize_css=True)
+        >>> html_content = css_safe_converter.convert(mhtml_string)
     """
     
-    def __init__(self, remove_javascript: bool = False):
+    def __init__(self, remove_javascript: bool = False, sanitize_css: bool = False):
         """
         Initialize the MHTML converter.
         
@@ -31,8 +36,11 @@ class MHTMLConverter:
             remove_javascript: If True, removes potentially dangerous JavaScript content
                               including script tags, event handlers, and javascript: URLs.
                               Default is False to preserve original content.
+            sanitize_css: If True, removes CSS properties that can make network requests
+                         (url(), @import, expression(), behavior:). Default is False.
         """
         self.remove_javascript = remove_javascript
+        self.sanitize_css = sanitize_css
     def convert_file(self, mhtml_path: str) -> str:
         """
         Convert an MHTML file to a standalone HTML string.
@@ -98,9 +106,12 @@ class MHTMLConverter:
             processor.html_content = html_with_css  # Update processor with embedded CSS
             final_html = processor.convert_to_data_uris()
             
-            # Apply JavaScript removal if requested
+            # Apply security sanitization if requested
             if self.remove_javascript:
-                final_html = clean_html_content(final_html)
+                final_html = remove_javascript_content(final_html)
+            
+            if self.sanitize_css:
+                final_html = sanitize_css(final_html)
             
             return final_html
             

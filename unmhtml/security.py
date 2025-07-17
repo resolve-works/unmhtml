@@ -1,9 +1,9 @@
 import re
 
 
-def clean_html_content(html: str) -> str:
+def remove_javascript_content(html: str) -> str:
     """
-    Clean HTML content by removing potentially dangerous JavaScript elements.
+    Remove potentially dangerous JavaScript content from HTML.
     
     This function removes potentially dangerous JavaScript content from HTML to make it
     safer for display. It performs the following sanitization steps:
@@ -21,15 +21,15 @@ def clean_html_content(html: str) -> str:
         html: HTML content to clean
         
     Returns:
-        Cleaned HTML string with dangerous JavaScript elements removed
+        HTML string with dangerous JavaScript elements removed
         
     Example:
         >>> html = '<div onclick="alert()">Hello</div><script>alert("bad")</script>'
-        >>> clean_html_content(html)
+        >>> remove_javascript_content(html)
         '<div>Hello</div>'
         
         >>> html = '<a href="javascript:alert()">Link</a>'
-        >>> clean_html_content(html)
+        >>> remove_javascript_content(html)
         '<a href="#">Link</a>'
     """
     # Remove script tags (both inline and external) for security
@@ -117,3 +117,50 @@ def is_javascript_file(url: str, content_type: str = None) -> bool:
             return True
     
     return False
+
+
+def sanitize_css(html: str) -> str:
+    """
+    Sanitize CSS content by removing properties that can make network requests.
+    
+    This function removes potentially dangerous CSS properties that could be used to
+    exfiltrate data or make external network requests:
+    
+    1. Removes CSS url() properties (background-image, list-style-image, etc.)
+    2. Removes @import statements that load external stylesheets
+    3. Removes IE-specific expression() properties
+    4. Removes behavior: properties
+    
+    Args:
+        html: HTML content containing CSS to sanitize
+        
+    Returns:
+        HTML string with dangerous CSS properties removed
+        
+    Example:
+        >>> html = '<style>body { background: url("http://evil.com/img.png"); }</style>'
+        >>> sanitize_css(html)
+        '<style>body {  }</style>'
+        
+        >>> html = '<style>@import url("http://evil.com/style.css");</style>'
+        >>> sanitize_css(html)
+        '<style></style>'
+    """
+    # Remove @import statements that could load external stylesheets first
+    # Handle both @import url(...) and @import "..." formats
+    html = re.sub(r'@import\s+[^;{}]+;?', '', html, flags=re.IGNORECASE)
+    
+    # Remove CSS url() properties that could exfiltrate data
+    # Matches: url("..."), url('...'), url(...)
+    html = re.sub(r'url\s*\(\s*["\']?[^)]*["\']?\s*\)', '', html, flags=re.IGNORECASE)
+    
+    # Remove IE-specific expression() properties (already handled in remove_javascript_content but keeping for completeness)
+    html = re.sub(r'expression\s*\([^)]*\)', '', html, flags=re.IGNORECASE)
+    
+    # Remove behavior: properties (IE-specific)
+    html = re.sub(r'behavior\s*:\s*[^;]+;', '', html, flags=re.IGNORECASE)
+    
+    # Clean up empty CSS rules that may have been left behind
+    html = re.sub(r'[^{}]*\{\s*\}', '', html)
+    
+    return html

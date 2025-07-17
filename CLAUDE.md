@@ -142,7 +142,7 @@ unmhtml/
 ├── parser.py          # MHTMLParser class
 ├── processor.py       # HTMLProcessor class
 ├── converter.py       # MHTMLConverter main class
-├── utils.py           # Utility functions
+├── security.py        # Security sanitization functions
 └── py.typed           # Type hints marker
 ```
 
