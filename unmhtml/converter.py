@@ -1,6 +1,6 @@
 from .parser import MHTMLParser
 from .processor import HTMLProcessor
-from .utils import clean_html_content
+from .security import clean_html_content
 
 
 class MHTMLConverter:

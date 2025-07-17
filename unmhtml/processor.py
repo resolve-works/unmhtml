@@ -2,7 +2,7 @@ import re
 import base64
 import mimetypes
 from typing import Dict
-from .utils import is_javascript_file
+from .security import is_javascript_file
 
 
 class HTMLProcessor:

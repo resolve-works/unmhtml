@@ -117,5 +117,3 @@ def is_javascript_file(url: str, content_type: str = None) -> bool:
             return True
     
     return False
-
-
