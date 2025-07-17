@@ -147,20 +147,75 @@ def sanitize_css(html: str) -> str:
         '<style></style>'
     """
     # Remove @import statements that could load external stylesheets first
-    # Handle both @import url(...) and @import "..." formats
-    html = re.sub(r'@import\s+[^;{}]+;?', '', html, flags=re.IGNORECASE)
+    # Use a more specific pattern to avoid backtracking
+    html = re.sub(r'@import\s+(?:url\([^)]*\)|["\'][^"\']*["\'])[^;]*;?', '', html, flags=re.IGNORECASE)
     
     # Remove CSS url() properties that could exfiltrate data
-    # Matches: url("..."), url('...'), url(...)
-    html = re.sub(r'url\s*\(\s*["\']?[^)]*["\']?\s*\)', '', html, flags=re.IGNORECASE)
+    # Use a more efficient pattern that doesn't cause backtracking
+    html = re.sub(r'url\s*\([^)]*\)', '', html, flags=re.IGNORECASE)
     
-    # Remove IE-specific expression() properties (already handled in remove_javascript_content but keeping for completeness)
+    # Remove IE-specific expression() properties
     html = re.sub(r'expression\s*\([^)]*\)', '', html, flags=re.IGNORECASE)
     
     # Remove behavior: properties (IE-specific)
-    html = re.sub(r'behavior\s*:\s*[^;]+;', '', html, flags=re.IGNORECASE)
+    html = re.sub(r'behavior\s*:\s*[^;]+;?', '', html, flags=re.IGNORECASE)
     
-    # Clean up empty CSS rules that may have been left behind
-    html = re.sub(r'[^{}]*\{\s*\}', '', html)
+    return html
+
+
+def remove_forms(html: str) -> str:
+    """
+    Remove form elements that could submit data externally.
+    
+    This function removes potentially dangerous form elements that could be used to
+    submit data to external endpoints:
+    
+    1. Removes <form> elements and their contents
+    2. Removes <input> elements (all types)
+    3. Removes <textarea> elements
+    4. Removes <select> elements and their <option> children
+    5. Removes <button type="submit"> elements
+    6. Removes <fieldset> and <legend> elements
+    7. Removes <label> elements (as they become meaningless without form controls)
+    
+    Args:
+        html: HTML content containing forms to remove
+        
+    Returns:
+        HTML string with form elements removed
+        
+    Example:
+        >>> html = '<form action="/submit"><input type="text" name="data"><button type="submit">Submit</button></form>'
+        >>> remove_forms(html)
+        ''
+        
+        >>> html = '<div><p>Text</p><form><input type="hidden" name="csrf"></form><p>More text</p></div>'
+        >>> remove_forms(html)
+        '<div><p>Text</p><p>More text</p></div>'
+    """
+    # Remove entire form elements and their contents
+    html = re.sub(r'<form[^>]*>.*?</form>', '', html, flags=re.DOTALL | re.IGNORECASE)
+    
+    # Remove input elements (all types: text, hidden, submit, button, etc.)
+    html = re.sub(r'<input[^>]*/?>', '', html, flags=re.IGNORECASE)
+    
+    # Remove textarea elements
+    html = re.sub(r'<textarea[^>]*>.*?</textarea>', '', html, flags=re.DOTALL | re.IGNORECASE)
+    
+    # Remove select elements and their options
+    html = re.sub(r'<select[^>]*>.*?</select>', '', html, flags=re.DOTALL | re.IGNORECASE)
+    
+    # Remove button elements that could be used for form submission
+    html = re.sub(r'<button[^>]*>.*?</button>', '', html, flags=re.DOTALL | re.IGNORECASE)
+    
+    # Remove fieldset and legend elements (form grouping elements)
+    html = re.sub(r'<fieldset[^>]*>.*?</fieldset>', '', html, flags=re.DOTALL | re.IGNORECASE)
+    html = re.sub(r'<legend[^>]*>.*?</legend>', '', html, flags=re.DOTALL | re.IGNORECASE)
+    
+    # Remove label elements (they become meaningless without form controls)
+    html = re.sub(r'<label[^>]*>.*?</label>', '', html, flags=re.DOTALL | re.IGNORECASE)
+    
+    # Remove datalist elements (used with input elements)
+    html = re.sub(r'<datalist[^>]*>.*?</datalist>', '', html, flags=re.DOTALL | re.IGNORECASE)
     
     return html

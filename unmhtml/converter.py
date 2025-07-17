@@ -1,6 +1,6 @@
 from .parser import MHTMLParser
 from .processor import HTMLProcessor
-from .security import remove_javascript_content, sanitize_css
+from .security import remove_javascript_content, sanitize_css, remove_forms
 
 
 class MHTMLConverter:
@@ -16,6 +16,8 @@ class MHTMLConverter:
                           for security. Default is False to preserve original content.
         sanitize_css: If True, removes CSS properties that can make network requests
                      (url(), @import, expression(), behavior:). Default is False.
+        remove_forms: If True, removes form elements that could submit data externally.
+                     Default is False.
     
     Example:
         >>> converter = MHTMLConverter()
@@ -28,7 +30,7 @@ class MHTMLConverter:
         >>> html_content = css_safe_converter.convert(mhtml_string)
     """
     
-    def __init__(self, remove_javascript: bool = False, sanitize_css: bool = False):
+    def __init__(self, remove_javascript: bool = False, sanitize_css: bool = False, remove_forms: bool = False):
         """
         Initialize the MHTML converter.
         
@@ -38,9 +40,12 @@ class MHTMLConverter:
                               Default is False to preserve original content.
             sanitize_css: If True, removes CSS properties that can make network requests
                          (url(), @import, expression(), behavior:). Default is False.
+            remove_forms: If True, removes form elements that could submit data externally.
+                         Default is False.
         """
         self.remove_javascript = remove_javascript
         self.sanitize_css = sanitize_css
+        self.remove_forms = remove_forms
     def convert_file(self, mhtml_path: str) -> str:
         """
         Convert an MHTML file to a standalone HTML string.
@@ -112,6 +117,9 @@ class MHTMLConverter:
             
             if self.sanitize_css:
                 final_html = sanitize_css(final_html)
+            
+            if self.remove_forms:
+                final_html = remove_forms(final_html)
             
             return final_html
             
