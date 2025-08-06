@@ -45,13 +45,13 @@ Optional security features for safe display of untrusted content:
 - `MHTMLConverter` class with configurable security options
 - `convert_file(path)` method for file-based conversion
 - `convert(content)` method for string-based conversion
-- Boolean flags for each security feature (all disabled by default)
+- Boolean flags for each security feature (all enabled by default)
 
 ### **Security Options**
-- `remove_javascript`: Remove all JavaScript content
-- `sanitize_css`: Remove dangerous CSS properties
-- `remove_forms`: Remove form elements
-- `remove_meta_redirects`: Remove dangerous meta tags
+- `remove_javascript`: Remove all JavaScript content (enabled by default)
+- `sanitize_css`: Remove dangerous CSS properties (enabled by default)
+- `remove_forms`: Remove form elements (enabled by default)
+- `remove_meta_redirects`: Remove dangerous meta tags (enabled by default)
 
 ## **Key Features**
 
@@ -60,7 +60,7 @@ Optional security features for safe display of untrusted content:
 - **Security Focus:** Comprehensive sanitization options for untrusted content
 - **Error Handling:** Graceful degradation for malformed MHTML files
 - **Memory Efficiency:** Process large files without excessive memory usage
-- **Default Safety:** All sanitization disabled by default to preserve content
+- **Default Safety:** All sanitization enabled by default for secure processing
 
 ## **Testing Requirements**
 

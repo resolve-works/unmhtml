@@ -221,3 +221,41 @@ def remove_forms(html: str) -> str:
     return html
 
 
+def remove_meta_redirects(html: str) -> str:
+    """
+    Remove dangerous meta tags that can redirect or set cookies.
+    
+    This function removes potentially dangerous meta tags that could be used for
+    malicious redirects or tracking:
+    
+    1. Removes meta refresh tags that automatically redirect pages
+    2. Removes meta http-equiv set-cookie tags
+    3. Removes meta dns-prefetch tags that could leak information
+    
+    Args:
+        html: HTML content containing meta tags to sanitize
+        
+    Returns:
+        HTML string with dangerous meta tags removed
+        
+    Example:
+        >>> html = '<meta http-equiv="refresh" content="0;url=http://evil.com">'
+        >>> remove_meta_redirects(html)
+        ''
+        
+        >>> html = '<meta http-equiv="set-cookie" content="session=abc123">'
+        >>> remove_meta_redirects(html)
+        ''
+    """
+    # Remove meta refresh tags that automatically redirect
+    html = re.sub(r'<meta[^>]*http-equiv\s*=\s*["\']?refresh["\']?[^>]*>', '', html, flags=re.IGNORECASE)
+    
+    # Remove meta set-cookie tags
+    html = re.sub(r'<meta[^>]*http-equiv\s*=\s*["\']?set-cookie["\']?[^>]*>', '', html, flags=re.IGNORECASE)
+    
+    # Remove DNS prefetch meta tags that could leak information
+    html = re.sub(r'<meta[^>]*name\s*=\s*["\']?dns-prefetch["\']?[^>]*>', '', html, flags=re.IGNORECASE)
+    
+    return html
+
+

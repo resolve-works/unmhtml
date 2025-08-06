@@ -1,7 +1,10 @@
 import pytest
 from unmhtml.security import (
     remove_javascript_content,
-    is_javascript_file
+    is_javascript_file,
+    sanitize_css,
+    remove_forms,
+    remove_meta_redirects
 )
 
 
@@ -143,3 +146,165 @@ class TestSecurity:
         
         # Neither indicates JavaScript
         assert is_javascript_file("style.css", "text/css") == False
+    
+    # Tests for CSS sanitization
+    def test_sanitize_css_removes_url_properties(self):
+        """Test CSS url() property removal"""
+        html_with_css = '''
+        <style>
+            body { background: url('http://evil.com/track.png'); }
+            .test { list-style-image: url("data:image/png;base64,bad"); }
+        </style>
+        '''
+        cleaned = sanitize_css(html_with_css)
+        assert 'url(' not in cleaned
+        assert 'http://evil.com/track.png' not in cleaned
+        assert 'data:image/png;base64,bad' not in cleaned
+    
+    def test_sanitize_css_removes_import_statements(self):
+        """Test CSS @import statement removal"""
+        html_with_imports = '''
+        <style>
+            @import url("http://evil.com/malicious.css");
+            @import "local-evil.css";
+            body { color: red; }
+        </style>
+        '''
+        cleaned = sanitize_css(html_with_imports)
+        assert '@import' not in cleaned
+        assert 'http://evil.com/malicious.css' not in cleaned
+        assert 'local-evil.css' not in cleaned
+        assert 'color: red' in cleaned
+    
+    def test_sanitize_css_removes_expression_properties(self):
+        """Test CSS expression() property removal"""
+        html_with_expressions = '''
+        <style>
+            .test { width: expression(document.body.scrollWidth > 600 ? "600px" : "auto"); }
+            body { color: blue; }
+        </style>
+        '''
+        cleaned = sanitize_css(html_with_expressions)
+        assert 'expression(' not in cleaned
+        assert 'document.body' not in cleaned
+        assert 'color: blue' in cleaned
+    
+    def test_sanitize_css_removes_behavior_properties(self):
+        """Test CSS behavior: property removal"""
+        html_with_behavior = '''
+        <style>
+            .evil { behavior: url('evil.htc'); }
+            .good { color: green; }
+        </style>
+        '''
+        cleaned = sanitize_css(html_with_behavior)
+        assert 'behavior:' not in cleaned
+        assert 'evil.htc' not in cleaned
+        assert 'color: green' in cleaned
+    
+    # Tests for form removal
+    def test_remove_forms_complete_removal(self):
+        """Test complete form removal"""
+        html_with_forms = '''
+        <div>
+            <h1>Title</h1>
+            <form action="/submit" method="post">
+                <label for="name">Name:</label>
+                <input type="text" id="name" name="name">
+                <textarea name="message" placeholder="Message"></textarea>
+                <select name="category">
+                    <option value="general">General</option>
+                    <option value="support">Support</option>
+                </select>
+                <button type="submit">Submit</button>
+                <input type="hidden" name="csrf" value="token">
+            </form>
+            <p>Good content</p>
+        </div>
+        '''
+        cleaned = remove_forms(html_with_forms)
+        assert '<form' not in cleaned
+        assert '<input' not in cleaned
+        assert '<textarea' not in cleaned
+        assert '<select' not in cleaned
+        assert '<option' not in cleaned
+        assert '<button' not in cleaned
+        assert '<label' not in cleaned
+        assert '<h1>Title</h1>' in cleaned
+        assert '<p>Good content</p>' in cleaned
+    
+    def test_remove_forms_fieldset_and_datalist(self):
+        """Test removal of fieldset and datalist elements"""
+        html_with_fieldset = '''
+        <div>
+            <fieldset>
+                <legend>Personal Information</legend>
+                <input type="text" name="firstname">
+            </fieldset>
+            <datalist id="browsers">
+                <option value="Chrome">
+                <option value="Firefox">
+            </datalist>
+            <p>Safe content</p>
+        </div>
+        '''
+        cleaned = remove_forms(html_with_fieldset)
+        assert '<fieldset' not in cleaned
+        assert '<legend' not in cleaned
+        assert '<datalist' not in cleaned
+        assert '<option' not in cleaned
+        assert '<input' not in cleaned
+        assert '<p>Safe content</p>' in cleaned
+    
+    # Tests for meta redirect removal
+    def test_remove_meta_redirects_refresh(self):
+        """Test meta refresh tag removal"""
+        html_with_refresh = '''
+        <html>
+        <head>
+            <meta http-equiv="refresh" content="0;url=http://evil.com">
+            <meta name="description" content="Good meta tag">
+            <title>Test</title>
+        </head>
+        <body>Content</body>
+        </html>
+        '''
+        cleaned = remove_meta_redirects(html_with_refresh)
+        assert 'http-equiv="refresh"' not in cleaned
+        assert 'http://evil.com' not in cleaned
+        assert 'name="description"' in cleaned
+        assert '<title>Test</title>' in cleaned
+    
+    def test_remove_meta_redirects_set_cookie(self):
+        """Test meta set-cookie tag removal"""
+        html_with_cookie = '''
+        <html>
+        <head>
+            <meta http-equiv="set-cookie" content="session=abc123">
+            <meta charset="utf-8">
+            <title>Test</title>
+        </head>
+        </html>
+        '''
+        cleaned = remove_meta_redirects(html_with_cookie)
+        assert 'http-equiv="set-cookie"' not in cleaned
+        assert 'session=abc123' not in cleaned
+        assert 'charset="utf-8"' in cleaned
+        assert '<title>Test</title>' in cleaned
+    
+    def test_remove_meta_redirects_dns_prefetch(self):
+        """Test meta dns-prefetch tag removal"""
+        html_with_dns = '''
+        <html>
+        <head>
+            <meta name="dns-prefetch" content="evil.com">
+            <meta name="viewport" content="width=device-width">
+            <title>Test</title>
+        </head>
+        </html>
+        '''
+        cleaned = remove_meta_redirects(html_with_dns)
+        assert 'name="dns-prefetch"' not in cleaned
+        assert 'evil.com' not in cleaned
+        assert 'name="viewport"' in cleaned
+        assert '<title>Test</title>' in cleaned

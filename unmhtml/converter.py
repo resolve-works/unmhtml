@@ -1,6 +1,6 @@
 from .parser import MHTMLParser
 from .processor import HTMLProcessor
-from .security import remove_javascript_content, sanitize_css, remove_forms
+from .security import remove_javascript_content, sanitize_css, remove_forms, remove_meta_redirects
 
 
 class MHTMLConverter:
@@ -13,39 +13,45 @@ class MHTMLConverter:
     
     Args:
         remove_javascript: If True, removes script tags, event handlers, and javascript: URLs
-                          for security. Default is False to preserve original content.
+                          for security. Default is True for secure processing.
         sanitize_css: If True, removes CSS properties that can make network requests
-                     (url(), @import, expression(), behavior:). Default is False.
+                     (url(), @import, expression(), behavior:). Default is True for secure processing.
         remove_forms: If True, removes form elements that could submit data externally.
-                     Default is False.
+                     Default is True for secure processing.
+        remove_meta_redirects: If True, removes dangerous meta tags like refresh and set-cookie.
+                              Default is True for secure processing.
     
     Example:
         >>> converter = MHTMLConverter()
         >>> html_content = converter.convert_file('example.mhtml')
-        >>> # Or convert from string content with JavaScript removed
-        >>> secure_converter = MHTMLConverter(remove_javascript=True)
-        >>> html_content = secure_converter.convert(mhtml_string)
-        >>> # Or convert with CSS sanitization enabled
-        >>> css_safe_converter = MHTMLConverter(sanitize_css=True)
-        >>> html_content = css_safe_converter.convert(mhtml_string)
+        >>> # Or convert with security features disabled to preserve original content
+        >>> unsafe_converter = MHTMLConverter(remove_javascript=False, sanitize_css=False, 
+        ...                                   remove_forms=False, remove_meta_redirects=False)
+        >>> html_content = unsafe_converter.convert(mhtml_string)
+        >>> # Or convert with only specific security features disabled
+        >>> partial_converter = MHTMLConverter(remove_forms=False)
+        >>> html_content = partial_converter.convert(mhtml_string)
     """
     
-    def __init__(self, remove_javascript: bool = False, sanitize_css: bool = False, remove_forms: bool = False):
+    def __init__(self, remove_javascript: bool = True, sanitize_css: bool = True, remove_forms: bool = True, remove_meta_redirects: bool = True):
         """
         Initialize the MHTML converter.
         
         Args:
             remove_javascript: If True, removes potentially dangerous JavaScript content
                               including script tags, event handlers, and javascript: URLs.
-                              Default is False to preserve original content.
+                              Default is True for security.
             sanitize_css: If True, removes CSS properties that can make network requests
-                         (url(), @import, expression(), behavior:). Default is False.
+                         (url(), @import, expression(), behavior:). Default is True for security.
             remove_forms: If True, removes form elements that could submit data externally.
-                         Default is False.
+                         Default is True for security.
+            remove_meta_redirects: If True, removes dangerous meta tags like refresh and set-cookie.
+                                  Default is True for security.
         """
         self.remove_javascript = remove_javascript
         self.sanitize_css = sanitize_css
         self.remove_forms = remove_forms
+        self.remove_meta_redirects = remove_meta_redirects
     def convert_file(self, mhtml_path: str) -> str:
         """
         Convert an MHTML file to a standalone HTML string.
@@ -121,6 +127,8 @@ class MHTMLConverter:
             if self.remove_forms:
                 final_html = remove_forms(final_html)
             
+            if self.remove_meta_redirects:
+                final_html = remove_meta_redirects(final_html)
             
             return final_html
             

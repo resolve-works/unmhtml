@@ -282,7 +282,7 @@ iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAA
             converter.convert(invalid_input)
     
     def test_convert_with_remove_javascript_enabled(self):
-        """Test conversion with JavaScript removal enabled"""
+        """Test conversion with JavaScript removal enabled (default behavior)"""
         mhtml_with_js = """From: <Saved by Blink>
 MIME-Version: 1.0
 Content-Type: multipart/related; boundary="test"
@@ -314,8 +314,8 @@ iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAA
 --test--
 """
         
-        # Test with remove_javascript=True
-        converter = MHTMLConverter(remove_javascript=True)
+        # Test with default behavior (remove_javascript=True)
+        converter = MHTMLConverter()
         result = converter.convert(mhtml_with_js)
         
         # Should remove dangerous content
@@ -333,7 +333,7 @@ iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAA
         assert 'src="data:image/png;base64,' in result
     
     def test_convert_with_remove_javascript_disabled(self):
-        """Test conversion with JavaScript removal disabled (default)"""
+        """Test conversion with JavaScript removal disabled (non-default)"""
         mhtml_with_js = """From: <Saved by Blink>
 MIME-Version: 1.0
 Content-Type: multipart/related; boundary="test"
@@ -357,7 +357,7 @@ Content-Type: text/html
 --test--
 """
         
-        # Test with remove_javascript=False (default)
+        # Test with remove_javascript=False (non-default)
         converter = MHTMLConverter(remove_javascript=False)
         result = converter.convert(mhtml_with_js)
         
@@ -398,8 +398,8 @@ Content-Type: text/html
         temp_file.write_text(mhtml_content)
         
         try:
-            # Test with remove_javascript=True
-            converter = MHTMLConverter(remove_javascript=True)
+            # Test with default behavior (remove_javascript=True)
+            converter = MHTMLConverter()
             result = converter.convert_file(str(temp_file))
             
             # Should remove script tags
@@ -411,7 +411,7 @@ Content-Type: text/html
             pass  # tmp_path cleanup handled by pytest
     
     def test_convert_with_remove_forms_enabled(self):
-        """Test conversion with form removal enabled"""
+        """Test conversion with form removal enabled (default behavior)"""
         mhtml_with_forms = """From: <Saved by Blink>
 MIME-Version: 1.0
 Content-Type: multipart/related; boundary="test"
@@ -452,8 +452,8 @@ Content-Type: text/html
 --test--
 """
         
-        # Test with remove_forms=True
-        converter = MHTMLConverter(remove_forms=True)
+        # Test with default behavior (remove_forms=True)
+        converter = MHTMLConverter()
         result = converter.convert(mhtml_with_forms)
         
         # Should remove all form elements
@@ -473,8 +473,90 @@ Content-Type: text/html
         assert '<p>Good content</p>' in result
         assert '<title>Test Page</title>' in result
     
+    def test_convert_with_remove_meta_redirects_enabled(self):
+        """Test conversion with meta redirect removal enabled (default behavior)"""
+        mhtml_with_meta = """From: <Saved by Blink>
+MIME-Version: 1.0
+Content-Type: multipart/related; boundary="test"
+
+--test
+Content-Type: text/html
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="refresh" content="0;url=http://evil.com">
+    <meta http-equiv="set-cookie" content="session=abc123">
+    <meta name="dns-prefetch" content="evil.com">
+    <meta name="viewport" content="width=device-width">
+    <title>Test Page</title>
+</head>
+<body>
+    <h1>Hello World</h1>
+    <p>Good content</p>
+</body>
+</html>
+
+--test--
+"""
+        
+        # Test with default behavior (remove_meta_redirects=True)
+        converter = MHTMLConverter()
+        result = converter.convert(mhtml_with_meta)
+        
+        # Should remove dangerous meta tags
+        assert 'http-equiv="refresh"' not in result
+        assert 'http-equiv="set-cookie"' not in result
+        assert 'name="dns-prefetch"' not in result
+        assert 'http://evil.com' not in result
+        assert 'session=abc123' not in result
+        
+        # Should preserve good content
+        assert 'name="viewport"' in result
+        assert '<title>Test Page</title>' in result
+        assert '<h1>Hello World</h1>' in result
+        assert '<p>Good content</p>' in result
+    
+    def test_convert_with_remove_meta_redirects_disabled(self):
+        """Test conversion with meta redirect removal disabled (non-default)"""
+        mhtml_with_meta = """From: <Saved by Blink>
+MIME-Version: 1.0
+Content-Type: multipart/related; boundary="test"
+
+--test
+Content-Type: text/html
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="refresh" content="0;url=http://example.com">
+    <meta http-equiv="set-cookie" content="test=value">
+    <title>Test Page</title>
+</head>
+<body>
+    <h1>Hello World</h1>
+</body>
+</html>
+
+--test--
+"""
+        
+        # Test with remove_meta_redirects=False (non-default)
+        converter = MHTMLConverter(remove_meta_redirects=False)
+        result = converter.convert(mhtml_with_meta)
+        
+        # Should preserve all meta tags
+        assert 'http-equiv="refresh"' in result
+        assert 'http-equiv="set-cookie"' in result
+        assert 'http://example.com' in result
+        assert 'test=value' in result
+        
+        # Should also preserve good content
+        assert '<title>Test Page</title>' in result
+        assert '<h1>Hello World</h1>' in result
+    
     def test_convert_with_remove_forms_disabled(self):
-        """Test conversion with form removal disabled (default)"""
+        """Test conversion with form removal disabled (non-default)"""
         mhtml_with_forms = """From: <Saved by Blink>
 MIME-Version: 1.0
 Content-Type: multipart/related; boundary="test"
@@ -500,7 +582,7 @@ Content-Type: text/html
 --test--
 """
         
-        # Test with remove_forms=False (default)
+        # Test with remove_forms=False (non-default)
         converter = MHTMLConverter(remove_forms=False)
         result = converter.convert(mhtml_with_forms)
         
@@ -548,12 +630,8 @@ Content-Type: text/html
 --test--
 """
         
-        # Test with all security options enabled
-        converter = MHTMLConverter(
-            remove_javascript=True,
-            sanitize_css=True,
-            remove_forms=True
-        )
+        # Test with default behavior (all security options enabled)
+        converter = MHTMLConverter()
         result = converter.convert(mhtml_with_threats)
         
         # Should remove JavaScript threats
@@ -576,3 +654,85 @@ Content-Type: text/html
         assert '<h1>Hello World</h1>' in result
         assert '<p>Good content</p>' in result
         assert '<title>Test Page</title>' in result
+    
+    def test_convert_with_remove_meta_redirects_enabled(self):
+        """Test conversion with meta redirect removal enabled (default behavior)"""
+        mhtml_with_meta = """From: <Saved by Blink>
+MIME-Version: 1.0
+Content-Type: multipart/related; boundary="test"
+
+--test
+Content-Type: text/html
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="refresh" content="0;url=http://evil.com">
+    <meta http-equiv="set-cookie" content="session=abc123">
+    <meta name="dns-prefetch" content="evil.com">
+    <meta name="viewport" content="width=device-width">
+    <title>Test Page</title>
+</head>
+<body>
+    <h1>Hello World</h1>
+    <p>Good content</p>
+</body>
+</html>
+
+--test--
+"""
+        
+        # Test with default behavior (remove_meta_redirects=True)
+        converter = MHTMLConverter()
+        result = converter.convert(mhtml_with_meta)
+        
+        # Should remove dangerous meta tags
+        assert 'http-equiv="refresh"' not in result
+        assert 'http-equiv="set-cookie"' not in result
+        assert 'name="dns-prefetch"' not in result
+        assert 'http://evil.com' not in result
+        assert 'session=abc123' not in result
+        
+        # Should preserve good content
+        assert 'name="viewport"' in result
+        assert '<title>Test Page</title>' in result
+        assert '<h1>Hello World</h1>' in result
+        assert '<p>Good content</p>' in result
+    
+    def test_convert_with_remove_meta_redirects_disabled(self):
+        """Test conversion with meta redirect removal disabled (non-default)"""
+        mhtml_with_meta = """From: <Saved by Blink>
+MIME-Version: 1.0
+Content-Type: multipart/related; boundary="test"
+
+--test
+Content-Type: text/html
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="refresh" content="0;url=http://example.com">
+    <meta http-equiv="set-cookie" content="test=value">
+    <title>Test Page</title>
+</head>
+<body>
+    <h1>Hello World</h1>
+</body>
+</html>
+
+--test--
+"""
+        
+        # Test with remove_meta_redirects=False (non-default)
+        converter = MHTMLConverter(remove_meta_redirects=False)
+        result = converter.convert(mhtml_with_meta)
+        
+        # Should preserve all meta tags
+        assert 'http-equiv="refresh"' in result
+        assert 'http-equiv="set-cookie"' in result
+        assert 'http://example.com' in result
+        assert 'test=value' in result
+        
+        # Should also preserve good content
+        assert '<title>Test Page</title>' in result
+        assert '<h1>Hello World</h1>' in result
