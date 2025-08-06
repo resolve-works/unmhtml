@@ -116,16 +116,20 @@ class HTMLProcessor:
         Returns:
             CSS content as string, empty string if not found
         """
+        # Decode HTML entities (e.g., &amp; -> &)
+        import html
+        decoded_href = html.unescape(href)
+        
         # Try exact match first
-        if href in self.resources:
+        if decoded_href in self.resources:
             try:
-                return self.resources[href].decode('utf-8', errors='ignore')
+                return self.resources[decoded_href].decode('utf-8', errors='ignore')
             except Exception:
                 return ""
         
         # Try to find by basename or similar URLs
         for resource_url, content in self.resources.items():
-            if resource_url.endswith(href) or href.endswith(resource_url.split('/')[-1]):
+            if resource_url.endswith(decoded_href) or decoded_href.endswith(resource_url.split('/')[-1]):
                 try:
                     return content.decode('utf-8', errors='ignore')
                 except Exception:
