@@ -25,8 +25,7 @@ with open('output.html', 'w') as f:
 secure_converter = MHTMLConverter(
     remove_javascript=True,
     sanitize_css=True,
-    remove_forms=True,
-    remove_external_urls=True
+    remove_forms=True
 )
 html_content = secure_converter.convert_file('untrusted_page.mhtml')
 ```
@@ -48,7 +47,6 @@ The library provides comprehensive security options for safe display of untruste
 - **`remove_javascript=True`** - Removes `<script>` tags, event handlers (onclick, onload, etc.), and converts `javascript:` URLs to safe `#` anchors
 - **`sanitize_css=True`** - Removes CSS properties that can make network requests (`url()`, `@import`, `expression()`, `behavior:`)
 - **`remove_forms=True`** - Removes form elements (`<form>`, `<input>`, `<textarea>`, `<select>`) that could submit data externally
-- **`remove_external_urls=True`** - Converts external URLs to safe `#` anchors while preserving fragment identifiers and relative paths
 
 ### Usage Examples
 
@@ -60,8 +58,7 @@ secure_converter = MHTMLConverter(remove_javascript=True)
 safe_converter = MHTMLConverter(
     remove_javascript=True,
     sanitize_css=True,
-    remove_forms=True,
-    remove_external_urls=True
+    remove_forms=True
 )
 html_content = safe_converter.convert_file('untrusted.mhtml')
 ```

@@ -1,237 +1,83 @@
-# **unmhtml - MHTML to HTML Converter Library Specification**
+# **unmhtml - MHTML to HTML Converter Library**
 
-This document outlines the requirements and design for a Python library that converts MHTML (MIME HTML) files to standalone HTML files with embedded CSS, using only Python standard library modules.
+This document defines the requirements and design for a Python library that converts MHTML (MIME HTML) files to standalone HTML files with embedded resources.
 
-## **1. Project Goals and Scope**
+## **Project Goals**
 
-This library is responsible for:
+- Convert MHTML files to standalone HTML files with embedded CSS and resources
+- Preserve original rendered content structure for accurate display
+- Pure Python implementation using only standard library modules
+- Support integration with web applications displaying archived content
+- Provide comprehensive security sanitization for untrusted content
 
-- Converting MHTML files to standalone HTML files with embedded CSS
-- Preserving the original rendered content structure for accurate display
-- Providing a pure Python implementation using only standard library modules
-- Supporting integration with web applications that need to display archived content
+## **Technology Requirements**
 
-## **2. Technology Stack**
-
-- **Programming Language:** Python 3.8+
+- **Language:** Python 3.8+
 - **Package Manager:** uv toolchain
-- **Core Libraries:** Built-in Python standard library only
-  - `email` module for MIME parsing
-  - `base64` for resource decoding
-  - `mimetypes` for content type detection
-  - `urllib.parse` for URL handling
-  - `html` for HTML escaping
-  - `re` for text processing
-- **No External Dependencies:** Pure stdlib implementation for maximum portability
+- **Dependencies:** Python standard library only (`email`, `base64`, `mimetypes`, `urllib.parse`, `html`, `re`)
+- **Zero External Dependencies** for maximum portability
 
-## **3. MHTML Format Understanding**
+## **Core Functionality**
 
-MHTML files are structured as MIME multipart documents:
+### **MHTML Processing**
+- Parse MIME multipart documents with `multipart/related` or `message/rfc822` content types
+- Extract main HTML document and embedded resources (CSS, images, fonts)
+- Handle Content-Location headers linking resources to HTML references
+- Decode base64-encoded binary resources
 
-- **Content-Type:** `multipart/related` or `message/rfc822`
-- **Main HTML Document:** First part containing the primary HTML content
-- **Embedded Resources:** Subsequent parts containing CSS, images, fonts, etc.
-- **Resource References:** Content-Location headers link resources to HTML references
-- **Encoding:** Resources typically base64-encoded for binary content
+### **HTML Transformation**
+- Convert external CSS `<link>` tags to embedded `<style>` tags
+- Transform resource references (images, fonts) to data URIs
+- Resolve relative and absolute resource references
+- Handle URL resolution and path mapping
 
-## **4. Core Functionality**
+### **Security Sanitization**
+Optional security features for safe display of untrusted content:
 
-### **4.1. MHTML Parser**
+- **JavaScript Removal:** Script tags, event handlers, javascript: URLs
+- **CSS Sanitization:** Remove url(), @import, expression(), behavior: properties
+- **Form Removal:** Remove form elements that could submit data
+- **Meta Tag Sanitization:** Remove meta refresh, set-cookie, dns-prefetch tags
 
-**Class: `MHTMLParser`**
+## **API Design**
 
-```python
-import email
-import base64
-from typing import Dict, Tuple
+### **Main Interface**
+- `MHTMLConverter` class with configurable security options
+- `convert_file(path)` method for file-based conversion
+- `convert(content)` method for string-based conversion
+- Boolean flags for each security feature (all disabled by default)
 
-class MHTMLParser:
-    def __init__(self, mhtml_content: str):
-        self.mhtml_content = mhtml_content
-        
-    def parse(self) -> Tuple[str, Dict[str, bytes]]:
-        """Parse MHTML and return main HTML + resource map"""
-        message = email.message_from_string(self.mhtml_content)
-        # Extract main HTML and resources
-        return main_html, resources
-```
+### **Security Options**
+- `remove_javascript`: Remove all JavaScript content
+- `sanitize_css`: Remove dangerous CSS properties
+- `remove_forms`: Remove form elements
+- `remove_meta_redirects`: Remove dangerous meta tags
 
-### **4.2. HTML Processor**
+## **Key Features**
 
-**Class: `HTMLProcessor`**
+- **Resource Embedding:** All external resources converted to data URIs
+- **CSS Integration:** External stylesheets embedded as inline styles
+- **Security Focus:** Comprehensive sanitization options for untrusted content
+- **Error Handling:** Graceful degradation for malformed MHTML files
+- **Memory Efficiency:** Process large files without excessive memory usage
+- **Default Safety:** All sanitization disabled by default to preserve content
 
-```python
-class HTMLProcessor:
-    def __init__(self, html_content: str, resources: Dict[str, bytes]):
-        self.html_content = html_content
-        self.resources = resources
-        
-    def embed_css(self) -> str:
-        """Convert <link> tags to <style> tags with embedded CSS"""
-        # Replace external CSS references with inline styles
-        return modified_html
-        
-    def convert_to_data_uris(self) -> str:
-        """Convert resource references to data URIs"""
-        # Replace src/href attributes with data: URLs
-        return modified_html
-```
+## **Testing Requirements**
 
-### **4.3. Main Converter**
+- Basic MHTML to HTML conversion functionality
+- Resource embedding verification (CSS, images, fonts)
+- Security sanitization effectiveness testing
+- Error handling for malformed input
+- Content preservation during sanitization
+- Performance testing with typical web page sizes (1-5MB)
 
-**Class: `MHTMLConverter`**
+## **Success Criteria**
 
-```python
-class MHTMLConverter:
-    def __init__(self, 
-                 remove_javascript: bool = False,
-                 sanitize_css: bool = False,
-                 remove_forms: bool = False,
-                 remove_external_urls: bool = False,
-                 remove_meta_redirects: bool = False):
-        """
-        Initialize the MHTML converter.
-        
-        Args:
-            remove_javascript: If True, removes potentially dangerous JavaScript content
-                              including script tags, event handlers, and javascript: URLs.
-                              Default is False to preserve original content.
-            sanitize_css: If True, removes CSS properties that can make network requests
-                         (url(), @import, expression(), behavior:). Default is False.
-            remove_forms: If True, removes form elements that could submit data externally.
-                         Default is False.
-            remove_external_urls: If True, converts external URLs to safe anchors, keeping
-                                 only fragment identifiers and relative paths. Default is False.
-            remove_meta_redirects: If True, removes meta refresh and other dangerous meta tags.
-                                  Default is False.
-        """
-        self.remove_javascript = remove_javascript
-        self.sanitize_css = sanitize_css
-        self.remove_forms = remove_forms
-        self.remove_external_urls = remove_external_urls
-        self.remove_meta_redirects = remove_meta_redirects
-        
-    def convert_file(self, mhtml_path: str) -> str:
-        """Convert MHTML file to HTML string"""
-        with open(mhtml_path, 'r', encoding='utf-8') as f:
-            mhtml_content = f.read()
-        return self.convert(mhtml_content)
-        
-    def convert(self, mhtml_content: str) -> str:
-        """Convert MHTML content to HTML string"""
-        parser = MHTMLParser(mhtml_content)
-        main_html, resources = parser.parse()
-        
-        processor = HTMLProcessor(main_html, resources)
-        html_with_css = processor.embed_css()
-        final_html = processor.convert_to_data_uris()
-        
-        # Apply security sanitization if requested
-        if any([self.remove_javascript, self.sanitize_css, self.remove_forms, 
-                self.remove_external_urls, self.remove_meta_redirects]):
-            final_html = self._sanitize_html(final_html)
-        
-        return final_html
-```
+- **Functionality:** Successful conversion of MHTML to standalone HTML
+- **Performance:** Efficient processing of typical web pages
+- **Reliability:** Graceful handling of malformed MHTML
+- **Security:** Effective sanitization for safe display of untrusted content
+- **Simplicity:** Clean, minimal API with clear documentation
+- **Portability:** Zero external dependencies, pure Python stdlib implementation
 
-## **5. Package Structure**
-
-```
-unmhtml/
-├── __init__.py
-├── parser.py          # MHTMLParser class
-├── processor.py       # HTMLProcessor class
-├── converter.py       # MHTMLConverter main class
-├── security.py        # Security sanitization functions
-└── py.typed           # Type hints marker
-```
-
-## **6. API Design**
-
-### **6.1. Simple API**
-
-```python
-from unmhtml import MHTMLConverter
-
-# Basic conversion
-converter = MHTMLConverter()
-html_content = converter.convert_file('page.mhtml')
-
-# Direct content conversion
-html_content = converter.convert(mhtml_string)
-
-# Secure conversion with JavaScript removal
-secure_converter = MHTMLConverter(remove_javascript=True)
-html_content = secure_converter.convert_file('page.mhtml')
-
-# Full security sanitization for untrusted content
-safe_converter = MHTMLConverter(
-    remove_javascript=True,
-    sanitize_css=True,
-    remove_forms=True,
-    remove_external_urls=True,
-    remove_meta_redirects=True
-)
-html_content = safe_converter.convert_file('untrusted.mhtml')
-```
-
-## **7. Key Features**
-
-- **CSS Embedding:** Convert `<link rel="stylesheet">` to `<style>` tags
-- **Resource Embedding:** Convert images/fonts to data URIs
-- **URL Resolution:** Handle relative and absolute resource references
-- **Comprehensive Security Options:** Multiple sanitization features for safe display of untrusted content
-- **Error Handling:** Graceful degradation for malformed MHTML
-- **Memory Efficient:** Process large files without excessive memory usage
-
-## **8. Security Considerations**
-
-The library provides comprehensive security sanitization options for safe display of untrusted content:
-
-### **8.1. JavaScript Removal (`remove_javascript=True`)**
-- **Script Tag Removal:** Removes `<script>` tags and their contents
-- **Event Handler Removal:** Removes `on*` event handlers (onclick, onload, etc.)
-- **JavaScript URL Removal:** Converts `javascript:` URLs to safe `#` anchors
-
-### **8.2. CSS Sanitization (`sanitize_css=True`)**
-- **URL Property Removal:** Removes CSS `url()` references that could exfiltrate data
-- **Import Blocking:** Removes `@import` statements that could load external stylesheets
-- **Expression Removal:** Removes IE-specific `expression()` and `behavior:` properties
-
-### **8.3. Form Sanitization (`remove_forms=True`)**
-- **Form Element Removal:** Removes `<form>`, `<input>`, `<textarea>`, `<select>` elements
-- **Prevents Data Submission:** Stops forms from submitting data to external endpoints
-
-### **8.4. External URL Filtering (`remove_external_urls=True`)**
-- **URL Conversion:** Converts external URLs to safe `#` anchors
-- **Preserves Navigation:** Keeps fragment identifiers and relative paths intact
-- **Prevents Exfiltration:** Blocks attempts to send data via image or link requests
-
-### **8.5. Meta Tag Sanitization (`remove_meta_redirects=True`)**
-- **Redirect Removal:** Removes `<meta http-equiv="refresh">` tags
-- **Cookie Prevention:** Removes `<meta http-equiv="set-cookie">` tags
-- **DNS Prefetch Blocking:** Removes `<link rel="dns-prefetch">` tags
-
-### **8.6. Default Behavior**
-- **All sanitization is disabled by default** to preserve original content
-- **Enable specific options** based on your security requirements
-- **For untrusted content:** Enable all sanitization options for maximum safety
-
-## **9. Testing Strategy**
-
-- **Basic Functionality:** Test MHTML to HTML conversion works
-- **Error Handling:** Test graceful handling of malformed input
-- **Resource Embedding:** Verify CSS and resources are properly embedded
-- **Security Sanitization:** Test all security features work correctly
-- **Content Preservation:** Verify sanitization doesn't break legitimate content
-
-## **10. Success Criteria**
-
-- **Functionality:** Successfully convert MHTML files to standalone HTML
-- **Performance:** Process typical web pages (1-5MB MHTML) efficiently
-- **Reliability:** Handle malformed MHTML gracefully
-- **Security:** Provide comprehensive sanitization options for safe display of untrusted content
-- **Simplicity:** Clean, minimal API with good documentation
-- **Portability:** Zero external dependencies, pure Python stdlib
-
-This specification provides a focused foundation for building a lightweight MHTML to HTML converter library called unmhtml using the uv toolchain.
+This specification provides the foundation for building a lightweight, secure MHTML to HTML converter library.
