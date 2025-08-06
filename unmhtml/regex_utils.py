@@ -36,8 +36,10 @@ class RegexPatterns:
     CSS_IMPORT = re.compile(
         r'@import\s+(?:url\([^)]*\)|["\'][^"\']*["\'])[^;]*;?', IGNORECASE_ONLY
     )
+    # Only match external URLs (http://, https://, //, or absolute paths starting with /)
+    # Preserves relative URLs like url(image.png) or url(../fonts/font.woff)
     CSS_URL_EXTERNAL = re.compile(
-        r'url\s*\(\s*["\']?(?!data:)[^"\')\s]+["\']?\s*\)', IGNORECASE_ONLY
+        r'url\s*\(\s*["\']?(?:https?://|//|/[^/])[^"\')\s]*["\']?\s*\)', IGNORECASE_ONLY
     )
     CSS_BEHAVIOR = re.compile(r"behavior\s*:\s*[^;]+;?", IGNORECASE_ONLY)
 

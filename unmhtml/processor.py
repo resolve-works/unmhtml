@@ -36,6 +36,7 @@ class HTMLProcessor:
 
         Finds all stylesheet link tags in the HTML and replaces them with
         inline <style> tags containing the CSS content from the resources.
+        Updates the internal html_content with the result.
 
         Returns:
             HTML string with CSS embedded as inline styles
@@ -66,6 +67,8 @@ class HTMLProcessor:
                     style_tag = f'<style type="text/css">\n{css_content}\n</style>'
                     html = html.replace(link, style_tag)
 
+        # Update internal state
+        self.html_content = html
         return html
 
     def convert_to_data_uris(self) -> str:

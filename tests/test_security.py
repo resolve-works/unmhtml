@@ -161,19 +161,28 @@ class TestSecurity:
 
     # Tests for CSS sanitization
     def test_sanitize_css_removes_url_properties(self):
-        """Test CSS url() property removal - external URLs removed, data URIs preserved"""
+        """Test CSS url() property removal - external URLs removed, data URIs and relative URLs preserved"""
         html_with_css = """
         <style>
             body { background: url('http://evil.com/track.png'); }
             .test { list-style-image: url("data:image/png;base64,good"); }
+            .icon { background-image: url('images/icon.png'); }
+            .font { font-family: url('../fonts/myfont.woff'); }
+            .abs { background: url('/static/bg.jpg'); }
+            .protocol { background: url('//cdn.evil.com/img.png'); }
         </style>
         """
         cleaned = sanitize_css(html_with_css)
         # External URLs should be removed
         assert "http://evil.com/track.png" not in cleaned
+        assert "//cdn.evil.com/img.png" not in cleaned
+        assert "/static/bg.jpg" not in cleaned
         # Data URIs should be preserved
         assert "data:image/png;base64,good" in cleaned
         assert 'url("data:image/png;base64,good")' in cleaned
+        # Relative URLs should be preserved (will be converted to data URIs later)
+        assert "images/icon.png" in cleaned
+        assert "../fonts/myfont.woff" in cleaned
 
     def test_sanitize_css_removes_import_statements(self):
         """Test CSS @import statement removal"""
@@ -221,6 +230,7 @@ class TestSecurity:
         html_with_inline = """
         <div style="background: url('http://evil.com/track.png'); color: red;">
             <p style="list-style: url(data:image/png;base64,good); margin: 10px;">Good content</p>
+            <span style="background-image: url('local/image.png'); padding: 5px;">Relative URL</span>
         </div>
         """
         cleaned = sanitize_css(html_with_inline)
@@ -229,8 +239,11 @@ class TestSecurity:
         # Safe properties should remain
         assert "color: red" in cleaned
         assert "margin: 10px" in cleaned
+        assert "padding: 5px" in cleaned
         # Data URIs should be preserved in inline styles
         assert "data:image/png;base64,good" in cleaned
+        # Relative URLs should be preserved in inline styles
+        assert "local/image.png" in cleaned
 
     # Tests for form removal
     def test_remove_forms_complete_removal(self):

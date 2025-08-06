@@ -124,6 +124,22 @@ class MHTMLConverter:
             if not main_html:
                 raise ValueError("No HTML content found in MHTML")
 
+            # Apply security sanitization BEFORE resource embedding
+            # This ensures dangerous content is removed first, then safe resources are embedded
+            html_content = main_html
+
+            if self.remove_javascript:
+                html_content = remove_javascript_content(html_content)
+
+            if self.sanitize_css:
+                html_content = sanitize_css(html_content)
+
+            if self.remove_forms:
+                html_content = remove_forms(html_content)
+
+            if self.remove_meta_redirects:
+                html_content = remove_meta_redirects(html_content)
+
             # Filter out JavaScript files from resources if requested
             if self.remove_javascript:
                 filtered_resources = self._filter_javascript_resources(resources)
@@ -131,23 +147,10 @@ class MHTMLConverter:
                 filtered_resources = resources
 
             # Process HTML to embed CSS and convert resources
-            processor = HTMLProcessor(main_html, filtered_resources)
-            html_with_css = processor.embed_css()
-            processor.html_content = html_with_css  # Update processor with embedded CSS
+            # This happens AFTER sanitization, so legitimate resources are safely embedded
+            processor = HTMLProcessor(html_content, filtered_resources)
+            processor.embed_css()  # This now updates processor's internal state
             final_html = processor.convert_to_data_uris()
-
-            # Apply security sanitization if requested
-            if self.remove_javascript:
-                final_html = remove_javascript_content(final_html)
-
-            if self.sanitize_css:
-                final_html = sanitize_css(final_html)
-
-            if self.remove_forms:
-                final_html = remove_forms(final_html)
-
-            if self.remove_meta_redirects:
-                final_html = remove_meta_redirects(final_html)
 
             return final_html
 
