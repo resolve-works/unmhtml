@@ -219,3 +219,52 @@ def remove_forms(html: str) -> str:
     html = re.sub(r'<datalist[^>]*>.*?</datalist>', '', html, flags=re.DOTALL | re.IGNORECASE)
     
     return html
+
+
+def sanitize_external_urls(html: str) -> str:
+    """
+    Sanitize external URLs by converting them to safe anchors.
+    
+    This function removes potentially dangerous external URLs from HTML to prevent
+    data exfiltration and external requests:
+    
+    1. Converts external URLs in href attributes to safe # anchors
+    2. Converts external URLs in src attributes to safe # anchors
+    3. Preserves fragment identifiers (#section)
+    4. Preserves relative paths (./page.html, ../other.html)
+    5. Preserves mailto:, tel:, and data: URLs
+    
+    External URLs are identified as those with absolute schemes (http://, https://, ftp://, etc.)
+    that are not data:, mailto:, or tel: URLs.
+    
+    Args:
+        html: HTML content containing URLs to sanitize
+        
+    Returns:
+        HTML string with external URLs converted to safe anchors
+        
+    Example:
+        >>> html = '<a href="http://example.com">External Link</a>'
+        >>> sanitize_external_urls(html)
+        '<a href="#">External Link</a>'
+        
+        >>> html = '<a href="#section">Internal Link</a>'
+        >>> sanitize_external_urls(html)
+        '<a href="#section">Internal Link</a>'
+        
+        >>> html = '<img src="https://evil.com/track.gif" />'
+        >>> sanitize_external_urls(html)
+        '<img src="#" />'
+    """
+    # Pattern to match external URLs (absolute URLs with schemes)
+    # But preserve safe schemes like mailto:, tel:, and data:
+    external_url_pattern = r'((?:href|src)\s*=\s*["\'])(?:https?|ftp|ftps)://[^"\']*(["\'])'
+    
+    # Replace external URLs with safe anchors
+    html = re.sub(external_url_pattern, r'\1#\2', html, flags=re.IGNORECASE)
+    
+    # Also handle scheme-relative URLs (//example.com)
+    scheme_relative_pattern = r'((?:href|src)\s*=\s*["\'])//[^"\']*(["\'])'
+    html = re.sub(scheme_relative_pattern, r'\1#\2', html, flags=re.IGNORECASE)
+    
+    return html

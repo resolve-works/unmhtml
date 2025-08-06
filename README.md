@@ -21,8 +21,13 @@ html_content = converter.convert_file('saved_page.mhtml')
 with open('output.html', 'w') as f:
     f.write(html_content)
 
-# Secure conversion with JavaScript removal
-secure_converter = MHTMLConverter(remove_javascript=True)
+# Secure conversion with all security options
+secure_converter = MHTMLConverter(
+    remove_javascript=True,
+    sanitize_css=True,
+    remove_forms=True,
+    remove_external_urls=True
+)
 html_content = secure_converter.convert_file('untrusted_page.mhtml')
 ```
 
@@ -30,22 +35,35 @@ html_content = secure_converter.convert_file('untrusted_page.mhtml')
 
 - **Pure Python** - No external dependencies, uses only standard library
 - **Standalone HTML** - Embeds CSS and converts resources to data URIs
-- **Security** - Optional JavaScript removal for safe display of untrusted content
+- **Comprehensive Security** - Multiple sanitization options for safe display of untrusted content
 - **Graceful degradation** - Handles malformed MHTML files
 - **Memory efficient** - Processes large files without excessive memory usage
 
 ## Security
 
-When processing untrusted MHTML files, use the `remove_javascript=True` option to remove potentially dangerous content:
+The library provides comprehensive security options for safe display of untrusted content:
 
-- Removes `<script>` tags and their contents
-- Removes event handlers (onclick, onload, etc.)
-- Converts `javascript:` URLs to safe `#` anchors
+### Available Security Options
+
+- **`remove_javascript=True`** - Removes `<script>` tags, event handlers (onclick, onload, etc.), and converts `javascript:` URLs to safe `#` anchors
+- **`sanitize_css=True`** - Removes CSS properties that can make network requests (`url()`, `@import`, `expression()`, `behavior:`)
+- **`remove_forms=True`** - Removes form elements (`<form>`, `<input>`, `<textarea>`, `<select>`) that could submit data externally
+- **`remove_external_urls=True`** - Converts external URLs to safe `#` anchors while preserving fragment identifiers and relative paths
+
+### Usage Examples
 
 ```python
-# Safe for displaying untrusted content
+# JavaScript removal only
 secure_converter = MHTMLConverter(remove_javascript=True)
-html_content = secure_converter.convert_file('untrusted.mhtml')
+
+# Maximum security for untrusted content
+safe_converter = MHTMLConverter(
+    remove_javascript=True,
+    sanitize_css=True,
+    remove_forms=True,
+    remove_external_urls=True
+)
+html_content = safe_converter.convert_file('untrusted.mhtml')
 ```
 
 ## Requirements
