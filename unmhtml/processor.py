@@ -93,6 +93,9 @@ class HTMLProcessor:
         src_pattern = r'(src\s*=\s*["\'])([^"\']+)(["\'])'
         html = re.sub(src_pattern, self._replace_with_data_uri, html, flags=re.IGNORECASE)
         
+        # Remove favicon links that point to missing resources to prevent external requests
+        html = self._remove_missing_favicons(html)
+        
         # Process href attributes (excluding CSS which was already handled)
         href_pattern = r'(href\s*=\s*["\'])([^"\']+)(["\'])(?![^<]*rel\s*=\s*["\']stylesheet["\'])'
         html = re.sub(href_pattern, self._replace_with_data_uri, html, flags=re.IGNORECASE)
@@ -268,6 +271,37 @@ class HTMLProcessor:
             return mime_type
         
         return 'application/octet-stream'
+    
+    def _remove_missing_favicons(self, html: str) -> str:
+        """
+        Remove favicon links that point to missing resources.
+        
+        Prevents external requests by removing favicon and apple-touch-icon
+        links that reference resources not available in the MHTML bundle.
+        
+        Args:
+            html: The HTML content to process
+            
+        Returns:
+            HTML with missing favicon links removed
+        """
+        # Find favicon links
+        favicon_pattern = r'<link\s+[^>]*rel\s*=\s*["\'](?:icon|apple-touch-icon)["\'][^>]*>'
+        favicon_links = re.findall(favicon_pattern, html, re.IGNORECASE)
+        
+        for link in favicon_links:
+            # Extract href attribute
+            href_match = re.search(r'href\s*=\s*["\']([^"\']+)["\']', link, re.IGNORECASE)
+            if href_match:
+                href = href_match.group(1)
+                
+                # Check if resource exists in our bundle
+                resource_data = self._find_resource_content(href)
+                if not resource_data:
+                    # Resource not found, remove the link
+                    html = html.replace(link, '')
+                    
+        return html
     
     def _filter_javascript_resources(self, resources: Dict[str, bytes]) -> Dict[str, bytes]:
         """
