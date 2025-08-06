@@ -220,8 +220,8 @@ class TestHTMLProcessor:
         uri_result = processor.convert_to_data_uris()
         assert uri_result == html
     
-    def test_javascript_file_filtering(self):
-        """Test that JavaScript files are filtered when remove_javascript=True"""
+    def test_processor_handles_all_resources(self):
+        """Test that processor handles all provided resources without filtering"""
         html = '''<html>
         <body>
             <script src="app.js"></script>
@@ -236,28 +236,16 @@ class TestHTMLProcessor:
             'style.css': b'body { color: red; }'
         }
         
-        # Test with remove_javascript=False (default)
-        processor_normal = HTMLProcessor(html, resources, remove_javascript=False)
-        result_normal = processor_normal.convert_to_data_uris()
+        # Processor should handle all resources without filtering
+        processor = HTMLProcessor(html, resources)
+        result = processor.convert_to_data_uris()
         
-        # JavaScript file should be converted to data URI
-        assert 'data:text/javascript;base64,' in result_normal
-        assert 'data:image/png;base64,' in result_normal
-        
-        # Test with remove_javascript=True
-        processor_secure = HTMLProcessor(html, resources, remove_javascript=True)
-        result_secure = processor_secure.convert_to_data_uris()
-        
-        # JavaScript file should NOT be converted to data URI
-        assert 'data:text/javascript;base64,' not in result_secure
-        # Other resources should still be converted
-        assert 'data:image/png;base64,' in result_secure
-        
-        # The original src="app.js" should remain unchanged (not converted to data URI)
-        assert 'src="app.js"' in result_secure
+        # All resources should be embedded as data URIs
+        assert 'data:text/javascript;base64,' in result
+        assert 'data:image/png;base64,' in result
     
-    def test_javascript_file_filtering_with_css_embedding(self):
-        """Test JavaScript filtering works with CSS embedding"""
+    def test_css_embedding_with_mixed_resources(self):
+        """Test CSS embedding works correctly with mixed resource types"""
         html = '''<html>
         <head>
             <link rel="stylesheet" href="style.css">
@@ -274,8 +262,7 @@ class TestHTMLProcessor:
             'style.css': b'body { background: blue; }'
         }
         
-        # Test with remove_javascript=True
-        processor = HTMLProcessor(html, resources, remove_javascript=True)
+        processor = HTMLProcessor(html, resources)
         
         # First embed CSS
         html_with_css = processor.embed_css()
@@ -286,9 +273,8 @@ class TestHTMLProcessor:
         processor.html_content = html_with_css
         result = processor.convert_to_data_uris()
         
-        # JavaScript should not be embedded as data URI
-        assert 'data:text/javascript;base64,' not in result
-        # Image should be embedded
+        # All resources should be embedded as data URIs
+        assert 'data:text/javascript;base64,' in result
         assert 'data:image/png;base64,' in result
         # CSS should be embedded inline
         assert '<style type="text/css">' in result

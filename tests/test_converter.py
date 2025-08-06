@@ -654,3 +654,60 @@ Content-Type: text/html
         assert '<h1>Hello World</h1>' in result
         assert '<p>Good content</p>' in result
         assert '<title>Test Page</title>' in result
+    
+    def test_javascript_file_resource_filtering(self):
+        """Test that JavaScript files are filtered from resources when remove_javascript=True"""
+        mhtml_with_js_file = """From: <Saved by Blink>
+MIME-Version: 1.0
+Content-Type: multipart/related; boundary="test"
+
+--test
+Content-Type: text/html
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test</title>
+</head>
+<body>
+    <script src="app.js"></script>
+    <img src="image.png" alt="test">
+</body>
+</html>
+
+--test
+Content-Type: text/javascript
+Content-Location: app.js
+
+alert('This should not be embedded');
+
+--test
+Content-Type: image/png  
+Content-Transfer-Encoding: base64
+Content-Location: image.png
+
+iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==
+
+--test--
+"""
+        
+        # Test with remove_javascript=True (default)
+        converter = MHTMLConverter()
+        result = converter.convert(mhtml_with_js_file)
+        
+        # JavaScript file should NOT be embedded as data URI
+        assert 'data:text/javascript;base64,' not in result
+        # Image should still be embedded
+        assert 'data:image/png;base64,' in result
+        # Script tag should be completely removed by remove_javascript_content()
+        assert '<script' not in result
+        assert 'app.js' not in result
+        
+        # Test with remove_javascript=False
+        converter_unsafe = MHTMLConverter(remove_javascript=False)
+        result_unsafe = converter_unsafe.convert(mhtml_with_js_file)
+        
+        # JavaScript file should be embedded as data URI
+        assert 'data:text/javascript;base64,' in result_unsafe
+        # Image should still be embedded
+        assert 'data:image/png;base64,' in result_unsafe

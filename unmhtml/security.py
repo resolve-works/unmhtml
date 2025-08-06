@@ -1,5 +1,5 @@
 import re
-from .regex_utils import RegexPatterns, remove_html_tags, replace_attribute_values, remove_event_handlers
+from .regex_utils import RegexPatterns, remove_html_tags, replace_attribute_values, remove_event_handlers, sanitize_inline_styles
 
 
 def remove_javascript_content(html: str) -> str:
@@ -131,11 +131,14 @@ def sanitize_css(html: str) -> str:
         '<style></style>'
     """
     # Remove dangerous CSS patterns using centralized regex
-    css_patterns = [RegexPatterns.CSS_IMPORT, RegexPatterns.CSS_URL, 
+    css_patterns = [RegexPatterns.CSS_IMPORT, RegexPatterns.CSS_URL_EXTERNAL, 
                     RegexPatterns.EXPRESSION_CSS, RegexPatterns.CSS_BEHAVIOR]
     
     for pattern in css_patterns:
         html = pattern.sub('', html)
+    
+    # Also sanitize inline style attributes
+    html = sanitize_inline_styles(html)
     
     return html
 

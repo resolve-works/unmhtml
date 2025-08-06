@@ -1,6 +1,7 @@
+from typing import Dict
 from .parser import MHTMLParser
 from .processor import HTMLProcessor
-from .security import remove_javascript_content, sanitize_css, remove_forms, remove_meta_redirects
+from .security import remove_javascript_content, sanitize_css, remove_forms, remove_meta_redirects, is_javascript_file
 
 
 class MHTMLConverter:
@@ -110,9 +111,14 @@ class MHTMLConverter:
             if not main_html:
                 raise ValueError("No HTML content found in MHTML")
             
+            # Filter out JavaScript files from resources if requested
+            if self.remove_javascript:
+                filtered_resources = self._filter_javascript_resources(resources)
+            else:
+                filtered_resources = resources
+                
             # Process HTML to embed CSS and convert resources
-            # Pass remove_javascript flag to filter JavaScript files from resources
-            processor = HTMLProcessor(main_html, resources, remove_javascript=self.remove_javascript)
+            processor = HTMLProcessor(main_html, filtered_resources)
             html_with_css = processor.embed_css()
             processor.html_content = html_with_css  # Update processor with embedded CSS
             final_html = processor.convert_to_data_uris()
@@ -134,3 +140,25 @@ class MHTMLConverter:
             
         except Exception as e:
             raise ValueError(f"Failed to convert MHTML: {e}")
+    
+    def _filter_javascript_resources(self, resources: Dict[str, bytes]) -> Dict[str, bytes]:
+        """
+        Filter out JavaScript files from resources to prevent embedding.
+        
+        Removes JavaScript files from the resources dictionary to prevent them
+        from being embedded as data URIs in the final HTML when remove_javascript=True.
+        
+        Args:
+            resources: Dictionary of resource URLs to binary content
+            
+        Returns:
+            Filtered resources dictionary without JavaScript files
+        """
+        filtered_resources = {}
+        
+        for url, content in resources.items():
+            # Check if this is a JavaScript file
+            if not is_javascript_file(url):
+                filtered_resources[url] = content
+        
+        return filtered_resources

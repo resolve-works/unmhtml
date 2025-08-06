@@ -26,7 +26,7 @@ class RegexPatterns:
     
     # CSS sanitization patterns
     CSS_IMPORT = re.compile(r'@import\s+(?:url\([^)]*\)|["\'][^"\']*["\'])[^;]*;?', IGNORECASE_ONLY)
-    CSS_URL = re.compile(r'url\s*\([^)]*\)', IGNORECASE_ONLY)
+    CSS_URL_EXTERNAL = re.compile(r'url\s*\(\s*["\']?(?!data:)[^"\')\s]+["\']?\s*\)', IGNORECASE_ONLY)
     CSS_BEHAVIOR = re.compile(r'behavior\s*:\s*[^;]+;?', IGNORECASE_ONLY)
     
     # Form removal patterns
@@ -52,6 +52,12 @@ class RegexPatterns:
     HREF_NON_CSS = re.compile(r'(href\s*=\s*["\'])([^"\']+)(["\'])(?![^<]*rel\s*=\s*["\']stylesheet["\'])', IGNORECASE_ONLY)
     CSS_URL_REFERENCES = re.compile(r'url\s*\(\s*["\']?([^"\')\s]+)["\']?\s*\)', IGNORECASE_ONLY)
     FAVICON_LINKS = re.compile(r'<link\s+[^>]*rel\s*=\s*["\'](?:icon|apple-touch-icon)["\'][^>]*>', IGNORECASE_ONLY)
+    
+    # Event handler removal patterns
+    EVENT_HANDLERS = re.compile(r'\s+on(?:abort|beforeunload|blur|change|click|contextmenu|copy|cut|dblclick|drag|dragend|dragenter|dragleave|dragover|dragstart|drop|error|focus|hashchange|input|keydown|keypress|keyup|load|mousedown|mousemove|mouseout|mouseover|mouseup|mousewheel|offline|online|paste|reset|resize|scroll|select|storage|submit|unload|wheel)\s*=\s*["\'][^"\']*["\']', IGNORECASE_ONLY)
+    
+    # Inline style sanitization pattern
+    INLINE_STYLE_ATTR = re.compile(r'(style\s*=\s*["\'])([^"\']*)["\']', IGNORECASE_ONLY)
 
 
 def remove_html_tags(html: str, patterns: List[Pattern]) -> str:
@@ -104,7 +110,7 @@ def remove_event_handlers(html: str) -> str:
     Remove all JavaScript event handlers from HTML.
     
     This function removes event handler attributes (onclick, onload, etc.)
-    from HTML elements for security purposes.
+    from HTML elements for security purposes using a pre-compiled regex pattern.
     
     Args:
         html: HTML content to process
@@ -112,18 +118,33 @@ def remove_event_handlers(html: str) -> str:
     Returns:
         HTML string with event handlers removed
     """
-    event_handlers = [
-        'onabort', 'onbeforeunload', 'onblur', 'onchange', 'onclick', 'oncontextmenu',
-        'oncopy', 'oncut', 'ondblclick', 'ondrag', 'ondragend', 'ondragenter',
-        'ondragleave', 'ondragover', 'ondragstart', 'ondrop', 'onerror', 'onfocus',
-        'onhashchange', 'oninput', 'onkeydown', 'onkeypress', 'onkeyup', 'onload',
-        'onmousedown', 'onmousemove', 'onmouseout', 'onmouseover', 'onmouseup',
-        'onmousewheel', 'onoffline', 'ononline', 'onpaste', 'onreset', 'onresize',
-        'onscroll', 'onselect', 'onstorage', 'onsubmit', 'onunload', 'onwheel'
-    ]
+    return RegexPatterns.EVENT_HANDLERS.sub('', html)
+
+
+def sanitize_inline_styles(html: str) -> str:
+    """
+    Sanitize inline style attributes by removing dangerous CSS properties.
     
-    for handler in event_handlers:
-        pattern = re.compile(rf'\s+{handler}\s*=\s*["\'][^"\']*["\']', IGNORECASE_ONLY)
-        html = pattern.sub('', html)
+    This function removes dangerous CSS properties from inline style attributes
+    that could be used to make external requests or execute JavaScript.
     
-    return html
+    Args:
+        html: HTML content to process
+        
+    Returns:
+        HTML string with dangerous inline style properties removed
+    """
+    def sanitize_style_content(match):
+        prefix = match.group(1)
+        style_content = match.group(2)
+        suffix = '"'
+        
+        # Apply same CSS sanitization to inline styles
+        style_content = RegexPatterns.CSS_IMPORT.sub('', style_content)
+        style_content = RegexPatterns.CSS_URL_EXTERNAL.sub('', style_content)
+        style_content = RegexPatterns.EXPRESSION_CSS.sub('', style_content)
+        style_content = RegexPatterns.CSS_BEHAVIOR.sub('', style_content)
+        
+        return f'{prefix}{style_content}{suffix}'
+    
+    return RegexPatterns.INLINE_STYLE_ATTR.sub(sanitize_style_content, html)

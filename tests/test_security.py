@@ -149,17 +149,19 @@ class TestSecurity:
     
     # Tests for CSS sanitization
     def test_sanitize_css_removes_url_properties(self):
-        """Test CSS url() property removal"""
+        """Test CSS url() property removal - external URLs removed, data URIs preserved"""
         html_with_css = '''
         <style>
             body { background: url('http://evil.com/track.png'); }
-            .test { list-style-image: url("data:image/png;base64,bad"); }
+            .test { list-style-image: url("data:image/png;base64,good"); }
         </style>
         '''
         cleaned = sanitize_css(html_with_css)
-        assert 'url(' not in cleaned
+        # External URLs should be removed
         assert 'http://evil.com/track.png' not in cleaned
-        assert 'data:image/png;base64,bad' not in cleaned
+        # Data URIs should be preserved
+        assert 'data:image/png;base64,good' in cleaned
+        assert 'url("data:image/png;base64,good")' in cleaned
     
     def test_sanitize_css_removes_import_statements(self):
         """Test CSS @import statement removal"""
@@ -201,6 +203,22 @@ class TestSecurity:
         assert 'behavior:' not in cleaned
         assert 'evil.htc' not in cleaned
         assert 'color: green' in cleaned
+    
+    def test_sanitize_css_inline_styles(self):
+        """Test CSS sanitization of inline style attributes"""
+        html_with_inline = '''
+        <div style="background: url('http://evil.com/track.png'); color: red;">
+            <p style="list-style: url(data:image/png;base64,good); margin: 10px;">Good content</p>
+        </div>
+        '''
+        cleaned = sanitize_css(html_with_inline)
+        # External URLs should be removed from inline styles
+        assert 'http://evil.com/track.png' not in cleaned
+        # Safe properties should remain
+        assert 'color: red' in cleaned
+        assert 'margin: 10px' in cleaned
+        # Data URIs should be preserved in inline styles
+        assert 'data:image/png;base64,good' in cleaned
     
     # Tests for form removal
     def test_remove_forms_complete_removal(self):
