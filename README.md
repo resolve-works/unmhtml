@@ -52,27 +52,6 @@ The library is **secure by default** - all security features are enabled automat
 - **`remove_forms=True`** - Removes form elements (`<form>`, `<input>`, `<textarea>`, `<select>`) that could submit data externally
 - **`remove_meta_redirects=True`** - Removes dangerous meta tags (refresh redirects, set-cookie, dns-prefetch) that could be used maliciously
 
-### Usage Examples
-
-```python
-# Default secure conversion (all security features enabled)
-converter = MHTMLConverter()
-html_content = converter.convert_file('untrusted.mhtml')
-
-# Preserve original JavaScript (unsafe - only for trusted content)
-javascript_converter = MHTMLConverter(remove_javascript=False)
-html_content = javascript_converter.convert_file('trusted.mhtml')
-
-# Completely unsafe conversion (preserve all original content)
-unsafe_converter = MHTMLConverter(
-    remove_javascript=False,
-    sanitize_css=False,
-    remove_forms=False,
-    remove_meta_redirects=False
-)
-html_content = unsafe_converter.convert_file('trusted.mhtml')
-```
-
 ## Requirements
 
 - Python 3.8+
