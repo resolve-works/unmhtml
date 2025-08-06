@@ -119,25 +119,16 @@ class HTMLProcessor:
         Returns:
             CSS content as string, empty string if not found
         """
-        # Decode HTML entities (e.g., &amp; -> &)
+        # Decode HTML entities and find resource content
         import html
         decoded_href = html.unescape(href)
+        resource_data = self._find_resource_by_url(decoded_href)
         
-        # Try exact match first
-        if decoded_href in self.resources:
+        if resource_data:
             try:
-                return self.resources[decoded_href].decode('utf-8', errors='ignore')
+                return resource_data.decode('utf-8', errors='ignore')
             except Exception:
                 return ""
-        
-        # Try to find by basename or similar URLs
-        for resource_url, content in self.resources.items():
-            if resource_url.endswith(decoded_href) or decoded_href.endswith(resource_url.split('/')[-1]):
-                try:
-                    return content.decode('utf-8', errors='ignore')
-                except Exception:
-                    continue
-                    
         return ""
     
     def _replace_with_data_uri(self, match) -> str:
@@ -164,13 +155,8 @@ class HTMLProcessor:
         # Find resource content
         resource_data = self._find_resource_content(url)
         if resource_data:
-            # Determine MIME type
-            mime_type = self._get_mime_type(url)
-            
-            # Create data URI
-            b64_data = base64.b64encode(resource_data).decode('ascii')
-            data_uri = f'data:{mime_type};base64,{b64_data}'
-            
+            # Create data URI using centralized helper
+            data_uri = self._create_data_uri(resource_data, url)
             return f'{prefix}{data_uri}{suffix}'
         
         # Return original if resource not found
@@ -198,13 +184,8 @@ class HTMLProcessor:
         # Find resource content
         resource_data = self._find_resource_content(url)
         if resource_data:
-            # Determine MIME type
-            mime_type = self._get_mime_type(url)
-            
-            # Create data URI
-            b64_data = base64.b64encode(resource_data).decode('ascii')
-            data_uri = f'data:{mime_type};base64,{b64_data}'
-            
+            # Create data URI using centralized helper
+            data_uri = self._create_data_uri(resource_data, url)
             return f'url("{data_uri}")'
         
         # Return original if resource not found
@@ -216,6 +197,22 @@ class HTMLProcessor:
         
         Searches for resource content using multiple strategies:
         exact match, basename match, and URL without query parameters.
+        
+        Args:
+            url: The URL to search for in resources
+            
+        Returns:
+            Binary content of the resource, empty bytes if not found
+        """
+        return self._find_resource_by_url(url)
+        
+    def _find_resource_by_url(self, url: str) -> bytes:
+        """
+        Centralized resource finder with flexible URL matching strategies.
+        
+        This method consolidates all resource finding logic used across
+        the processor to avoid duplication. It tries multiple matching
+        strategies in order of preference.
         
         Args:
             url: The URL to search for in resources
@@ -238,6 +235,29 @@ class HTMLProcessor:
             return self.resources[url_without_query]
             
         return b""
+    
+    def _create_data_uri(self, resource_data: bytes, url: str) -> str:
+        """
+        Create a base64-encoded data URI from resource data.
+        
+        This method consolidates the data URI creation logic used across
+        the processor to avoid duplication. It determines the MIME type
+        and creates a properly formatted data URI.
+        
+        Args:
+            resource_data: Binary content of the resource
+            url: The original URL (used for MIME type detection)
+            
+        Returns:
+            Complete data URI string with MIME type and base64 content
+            
+        Example:
+            >>> data_uri = processor._create_data_uri(image_bytes, "image.png")
+            >>> # Returns: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA..."
+        """
+        mime_type = self._get_mime_type(url)
+        b64_data = base64.b64encode(resource_data).decode('ascii')
+        return f'data:{mime_type};base64,{b64_data}'
     
     def _get_mime_type(self, url: str) -> str:
         """

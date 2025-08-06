@@ -1,4 +1,5 @@
 import re
+from .regex_utils import RegexPatterns, remove_html_tags, replace_attribute_values, remove_event_handlers
 
 
 def remove_javascript_content(html: str) -> str:
@@ -32,42 +33,25 @@ def remove_javascript_content(html: str) -> str:
         >>> remove_javascript_content(html)
         '<a href="#">Link</a>'
     """
-    # Remove script tags (both inline and external) for security
-    html = re.sub(r'<script[^>]*>.*?</script>', '', html, flags=re.DOTALL | re.IGNORECASE)
+    # Remove script tags using centralized patterns
+    script_patterns = [RegexPatterns.SCRIPT_TAGS, RegexPatterns.NOSCRIPT_TAGS]
+    html = remove_html_tags(html, script_patterns)
     
-    # Remove noscript tags as they may contain fallback JavaScript
-    html = re.sub(r'<noscript[^>]*>.*?</noscript>', '', html, flags=re.DOTALL | re.IGNORECASE)
+    # Remove SVG script elements (special case requiring lambda)
+    html = RegexPatterns.SVG_SCRIPT_TAGS.sub(
+        lambda m: RegexPatterns.SCRIPT_TAGS.sub('', m.group(0)), html
+    )
     
-    # Remove SVG script elements
-    html = re.sub(r'<svg[^>]*>.*?<script[^>]*>.*?</script>.*?</svg>', 
-                  lambda m: re.sub(r'<script[^>]*>.*?</script>', '', m.group(0), flags=re.DOTALL | re.IGNORECASE),
-                  html, flags=re.DOTALL | re.IGNORECASE)
+    # Remove event handlers
+    html = remove_event_handlers(html)
     
-    # Remove on* event handlers (comprehensive list)
-    event_handlers = [
-        'onabort', 'onbeforeunload', 'onblur', 'onchange', 'onclick', 'oncontextmenu',
-        'oncopy', 'oncut', 'ondblclick', 'ondrag', 'ondragend', 'ondragenter',
-        'ondragleave', 'ondragover', 'ondragstart', 'ondrop', 'onerror', 'onfocus',
-        'onhashchange', 'oninput', 'onkeydown', 'onkeypress', 'onkeyup', 'onload',
-        'onmousedown', 'onmousemove', 'onmouseout', 'onmouseover', 'onmouseup',
-        'onmousewheel', 'onoffline', 'ononline', 'onpaste', 'onreset', 'onresize',
-        'onscroll', 'onselect', 'onstorage', 'onsubmit', 'onunload', 'onwheel'
-    ]
+    # Replace javascript: URLs with safe anchors
+    html = replace_attribute_values(html, RegexPatterns.JAVASCRIPT_URLS_HREF, 'href="#"')
+    html = replace_attribute_values(html, RegexPatterns.JAVASCRIPT_URLS_SRC, 'src="#"')
+    html = replace_attribute_values(html, RegexPatterns.DATA_URI_JAVASCRIPT, r'\1="#"')
     
-    for handler in event_handlers:
-        html = re.sub(rf'\s+{handler}\s*=\s*["\'][^"\']*["\']', '', html, flags=re.IGNORECASE)
-    
-    # Remove javascript: URLs from href attributes
-    html = re.sub(r'href\s*=\s*["\']javascript:[^"\']*["\']', 'href="#"', html, flags=re.IGNORECASE)
-    
-    # Remove javascript: URLs from src attributes
-    html = re.sub(r'src\s*=\s*["\']javascript:[^"\']*["\']', 'src="#"', html, flags=re.IGNORECASE)
-    
-    # Remove data URIs containing JavaScript
-    html = re.sub(r'(src|href)\s*=\s*["\']data:[^"\']*javascript[^"\']*["\']', r'\1="#"', html, flags=re.IGNORECASE)
-    
-    # Remove expression() CSS (IE-specific JavaScript in CSS)
-    html = re.sub(r'expression\s*\([^)]*\)', '', html, flags=re.IGNORECASE)
+    # Remove expression() CSS
+    html = RegexPatterns.EXPRESSION_CSS.sub('', html)
     
     return html
 
@@ -146,19 +130,12 @@ def sanitize_css(html: str) -> str:
         >>> sanitize_css(html)
         '<style></style>'
     """
-    # Remove @import statements that could load external stylesheets first
-    # Use a more specific pattern to avoid backtracking
-    html = re.sub(r'@import\s+(?:url\([^)]*\)|["\'][^"\']*["\'])[^;]*;?', '', html, flags=re.IGNORECASE)
+    # Remove dangerous CSS patterns using centralized regex
+    css_patterns = [RegexPatterns.CSS_IMPORT, RegexPatterns.CSS_URL, 
+                    RegexPatterns.EXPRESSION_CSS, RegexPatterns.CSS_BEHAVIOR]
     
-    # Remove CSS url() properties that could exfiltrate data
-    # Use a more efficient pattern that doesn't cause backtracking
-    html = re.sub(r'url\s*\([^)]*\)', '', html, flags=re.IGNORECASE)
-    
-    # Remove IE-specific expression() properties
-    html = re.sub(r'expression\s*\([^)]*\)', '', html, flags=re.IGNORECASE)
-    
-    # Remove behavior: properties (IE-specific)
-    html = re.sub(r'behavior\s*:\s*[^;]+;?', '', html, flags=re.IGNORECASE)
+    for pattern in css_patterns:
+        html = pattern.sub('', html)
     
     return html
 
@@ -193,30 +170,13 @@ def remove_forms(html: str) -> str:
         >>> remove_forms(html)
         '<div><p>Text</p><p>More text</p></div>'
     """
-    # Remove entire form elements and their contents
-    html = re.sub(r'<form[^>]*>.*?</form>', '', html, flags=re.DOTALL | re.IGNORECASE)
-    
-    # Remove input elements (all types: text, hidden, submit, button, etc.)
-    html = re.sub(r'<input[^>]*/?>', '', html, flags=re.IGNORECASE)
-    
-    # Remove textarea elements
-    html = re.sub(r'<textarea[^>]*>.*?</textarea>', '', html, flags=re.DOTALL | re.IGNORECASE)
-    
-    # Remove select elements and their options
-    html = re.sub(r'<select[^>]*>.*?</select>', '', html, flags=re.DOTALL | re.IGNORECASE)
-    
-    # Remove button elements that could be used for form submission
-    html = re.sub(r'<button[^>]*>.*?</button>', '', html, flags=re.DOTALL | re.IGNORECASE)
-    
-    # Remove fieldset and legend elements (form grouping elements)
-    html = re.sub(r'<fieldset[^>]*>.*?</fieldset>', '', html, flags=re.DOTALL | re.IGNORECASE)
-    html = re.sub(r'<legend[^>]*>.*?</legend>', '', html, flags=re.DOTALL | re.IGNORECASE)
-    
-    # Remove label elements (they become meaningless without form controls)
-    html = re.sub(r'<label[^>]*>.*?</label>', '', html, flags=re.DOTALL | re.IGNORECASE)
-    
-    # Remove datalist elements (used with input elements)
-    html = re.sub(r'<datalist[^>]*>.*?</datalist>', '', html, flags=re.DOTALL | re.IGNORECASE)
+    # Remove all form-related elements using centralized patterns
+    form_patterns = [
+        RegexPatterns.FORM_TAGS, RegexPatterns.INPUT_TAGS, RegexPatterns.TEXTAREA_TAGS,
+        RegexPatterns.SELECT_TAGS, RegexPatterns.BUTTON_TAGS, RegexPatterns.FIELDSET_TAGS,
+        RegexPatterns.LEGEND_TAGS, RegexPatterns.LABEL_TAGS, RegexPatterns.DATALIST_TAGS
+    ]
+    html = remove_html_tags(html, form_patterns)
     
     return html
 
@@ -247,14 +207,10 @@ def remove_meta_redirects(html: str) -> str:
         >>> remove_meta_redirects(html)
         ''
     """
-    # Remove meta refresh tags that automatically redirect
-    html = re.sub(r'<meta[^>]*http-equiv\s*=\s*["\']?refresh["\']?[^>]*>', '', html, flags=re.IGNORECASE)
-    
-    # Remove meta set-cookie tags
-    html = re.sub(r'<meta[^>]*http-equiv\s*=\s*["\']?set-cookie["\']?[^>]*>', '', html, flags=re.IGNORECASE)
-    
-    # Remove DNS prefetch meta tags that could leak information
-    html = re.sub(r'<meta[^>]*name\s*=\s*["\']?dns-prefetch["\']?[^>]*>', '', html, flags=re.IGNORECASE)
+    # Remove dangerous meta tags using centralized patterns
+    meta_patterns = [RegexPatterns.META_REFRESH, RegexPatterns.META_SET_COOKIE, 
+                     RegexPatterns.META_DNS_PREFETCH]
+    html = remove_html_tags(html, meta_patterns)
     
     return html
 

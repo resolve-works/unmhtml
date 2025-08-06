@@ -99,21 +99,13 @@ class MHTMLParser:
         Returns:
             Decoded string content, empty string if decoding fails
         """
-        try:
-            payload = part.get_payload()
-            encoding = part.get('Content-Transfer-Encoding', '').lower()
-            
-            if encoding == 'base64':
-                decoded = base64.b64decode(payload).decode('utf-8', errors='ignore')
-            elif encoding == 'quoted-printable':
-                import quopri
-                decoded = quopri.decodestring(payload).decode('utf-8', errors='ignore')
-            else:
-                decoded = payload if isinstance(payload, str) else payload.decode('utf-8', errors='ignore')
-                
-            return decoded
-        except Exception:
-            return ""
+        decoded_bytes = self._decode_part_to_bytes(part)
+        if decoded_bytes is not None:
+            try:
+                return decoded_bytes.decode('utf-8', errors='ignore')
+            except Exception:
+                return ""
+        return ""
     
     def _decode_part_binary(self, part) -> Optional[bytes]:
         """
@@ -121,6 +113,22 @@ class MHTMLParser:
         
         Handles various content transfer encodings for binary content
         including base64 and quoted-printable.
+        
+        Args:
+            part: MIME part object from email module
+            
+        Returns:
+            Binary content as bytes, None if decoding fails
+        """
+        return self._decode_part_to_bytes(part)
+        
+    def _decode_part_to_bytes(self, part) -> Optional[bytes]:
+        """
+        Unified decoder for MIME parts to binary data.
+        
+        This method consolidates all decoding logic to avoid duplication
+        between text and binary decoding methods. It handles various
+        content transfer encodings with proper fallback logic.
         
         Args:
             part: MIME part object from email module
